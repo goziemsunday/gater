@@ -4,5 +4,5 @@ dev:
 build:
     go build -o bin/server ./cmd/server
 
-# migrate:
-#     go run ./cmd/migrate
+migrate:
+    go run ./cmd/migrate --path ./migrations
