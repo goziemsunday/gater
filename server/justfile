@@ -1,0 +1,8 @@
+dev:
+    air
+
+build:
+    go build -o bin/server ./cmd/server
+
+# migrate:
+#     go run ./cmd/migrate

@@ -1,0 +1,14 @@
+#:schema https://json.schemastore.org/any.json
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main ./cmd/server"
+  bin = "./tmp/main"
+  watch_dir = "."
+  include_ext = ["go"]
+  exclude_dir = ["assets", "tmp", "vendor", "testdata"]
+
+[log]
+  time = true
