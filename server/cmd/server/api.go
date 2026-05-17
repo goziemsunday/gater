@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -10,15 +11,15 @@ import (
 	"github.com/go-chi/cors"
 )
 
-type api struct {
+type application struct {
 	config *config.Config
 	// store
 	// cache
 	// mailer
-	// logger
+	logger *slog.Logger
 }
 
-func (a *api) mount() http.Handler {
+func (a *application) mount() http.Handler {
 	r := chi.NewRouter()
 
 	// global middleware
