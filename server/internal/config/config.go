@@ -8,18 +8,30 @@ import (
 )
 
 type Config struct {
-	NodeEnv     string
-	DatabaseURL string
-	RedisURL    string
+	Env               string
+	Port              string
+	DatabaseURL       string
+	RedisURL          string
+	CORSAllowedOrigin string
 }
 
 func (c *Config) validate() error {
-	if c.DatabaseURL == "" {
-		return fmt.Errorf("DATABASE_URL is required")
+	required := map[string]string{
+		"DATABASE_URL":        c.DatabaseURL,
+		"REDIS_URL":           c.RedisURL,
+		"CORS_ALLOWED_ORIGIN": c.CORSAllowedOrigin,
 	}
-	if c.RedisURL == "" {
-		return fmt.Errorf("REDIS_URL is required")
+
+	for k, v := range required {
+		if v == "" {
+			return fmt.Errorf("missing required environment variable: %s", k)
+		}
 	}
+
+	if c.Port == "" {
+		c.Port = "8080"
+	}
+
 	return nil
 }
 
@@ -27,9 +39,11 @@ func Load() (*Config, error) {
 	godotenv.Load()
 
 	cfg := &Config{
-		NodeEnv:     os.Getenv("NODE_ENV"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		RedisURL:    os.Getenv("REDIS_URL"),
+		Env:               os.Getenv("ENV"),
+		Port:              os.Getenv("PORT"),
+		DatabaseURL:       os.Getenv("DATABASE_URL"),
+		RedisURL:          os.Getenv("REDIS_URL"),
+		CORSAllowedOrigin: os.Getenv("CORS_ALLOWED_ORIGIN"),
 	}
 
 	if err := cfg.validate(); err != nil {
