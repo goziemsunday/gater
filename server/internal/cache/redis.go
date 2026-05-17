@@ -1,0 +1,31 @@
+package cache
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/chiagxziem/snipper/internal/config"
+	"github.com/redis/go-redis/v9"
+)
+
+func NewClient(ctx context.Context) (*redis.Client, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+
+	// get redis options from the redis URL
+	opt, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse redis url: %w", err)
+	}
+
+	// get & ping redis client
+	client := redis.NewClient(opt)
+	if err := client.Ping(ctx).Err(); err != nil {
+		client.Close()
+		return nil, fmt.Errorf("ping redis: %w", err)
+	}
+
+	return client, nil
+}
