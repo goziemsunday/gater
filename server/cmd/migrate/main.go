@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"os"
+	"log"
 
 	"github.com/chiagxziem/snipper/internal/config"
 	"github.com/golang-migrate/migrate/v4"
@@ -15,41 +15,35 @@ import (
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	defer db.Close()
 
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	// get path to migrations from flag
 	pathFlag := pflag.StringP("path", "p", "", "path to migrations folder")
 	pflag.Parse()
 	if *pathFlag == "" {
-		fmt.Fprintln(os.Stderr, "path flag is required")
-		os.Exit(1)
+		log.Fatal("path flag is required")
 	}
 
 	m, err := migrate.NewWithDatabaseInstance("file://"+*pathFlag, "postgres", driver)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	err = m.Up()
 	if err != nil && err != migrate.ErrNoChange {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	if err == migrate.ErrNoChange {
