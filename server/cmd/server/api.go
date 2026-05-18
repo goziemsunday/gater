@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chiagxziem/snipper/internal/config"
+	"github.com/chiagxziem/snipper/internal/mailer"
 	"github.com/chiagxziem/snipper/internal/store"
 	"github.com/chiagxziem/snipper/internal/validator"
 	"github.com/go-chi/chi/v5"
@@ -22,7 +23,7 @@ type application struct {
 	config *config.Config
 	store  store.Store
 	// cache
-	// mailer
+	mailer    *mailer.Mailer
 	validator *validator.Validator
 	logger    *slog.Logger
 }

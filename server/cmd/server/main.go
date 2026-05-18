@@ -7,6 +7,7 @@ import (
 
 	"github.com/chiagxziem/snipper/internal/config"
 	"github.com/chiagxziem/snipper/internal/db"
+	"github.com/chiagxziem/snipper/internal/mailer"
 	"github.com/chiagxziem/snipper/internal/store"
 	"github.com/chiagxziem/snipper/internal/validator"
 )
@@ -38,12 +39,14 @@ func main() {
 	// init dbStore
 	dbStore := store.New(pool)
 
+	emailer := mailer.New(cfg)
 	validator := validator.New()
 
 	// init app
 	app := &application{
 		config:    cfg,
 		store:     dbStore,
+		mailer:    emailer,
 		validator: validator,
 		logger:    logger,
 	}

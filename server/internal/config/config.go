@@ -13,6 +13,8 @@ type Config struct {
 	DatabaseURL       string
 	RedisURL          string
 	CORSAllowedOrigin string
+	ResendAPIKey      string
+	ResendDomain      string
 }
 
 func (c *Config) validate() error {
@@ -20,6 +22,8 @@ func (c *Config) validate() error {
 		"DATABASE_URL":        c.DatabaseURL,
 		"REDIS_URL":           c.RedisURL,
 		"CORS_ALLOWED_ORIGIN": c.CORSAllowedOrigin,
+		"RESEND_API_KEY":      c.ResendAPIKey,
+		"RESEND_DOMAIN":       c.ResendDomain,
 	}
 
 	for k, v := range required {
@@ -44,6 +48,8 @@ func Load() (*Config, error) {
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		RedisURL:          os.Getenv("REDIS_URL"),
 		CORSAllowedOrigin: os.Getenv("CORS_ALLOWED_ORIGIN"),
+		ResendAPIKey:      os.Getenv("RESEND_API_KEY"),
+		ResendDomain:      os.Getenv("RESEND_DOMAIN"),
 	}
 
 	if err := cfg.validate(); err != nil {

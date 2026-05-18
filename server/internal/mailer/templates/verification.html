@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify your email</title>
+  </head>
+  <body>
+    <h1>Welcome to Snipper!</h1>
+    <p>Hi <strong>{{ .Name }}</strong>,</p>
+    <p>
+      Thanks for signing up. Please verify your email address by clicking the
+      button below:
+    </p>
+    <p style="text-align: center">
+      <a href="{{ .VerifyURL }}" class="button">Verify Email</a>
+    </p>
+    <p>Or copy and paste this link into your browser:</p>
+    <p><a href="{{ .VerifyURL }}">{{ .VerifyURL }}</a></p>
+    <p>This link expires in 24 hours.</p>
+    <div class="footer">
+      <p>If you didn't create an account, you can safely ignore this email.</p>
+    </div>
+  </body>
+</html>
