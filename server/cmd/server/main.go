@@ -38,7 +38,7 @@ func main() {
 
 	dbStore := store.New(pool)
 
-	emailer := mailer.New(cfg)
+	emailer := mailer.NewResendClient(cfg)
 
 	validator := validator.New()
 

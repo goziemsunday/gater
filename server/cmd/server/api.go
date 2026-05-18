@@ -20,11 +20,10 @@ import (
 )
 
 type application struct {
-	config *config.Config
-	store  store.Store
-	// cache
-	mailer    *mailer.Mailer
-	validator *validator.Validator
+	config    *config.Config
+	store     store.Store
+	mailer    mailer.Mailer
+	validator validator.Validator
 	logger    *slog.Logger
 }
 
