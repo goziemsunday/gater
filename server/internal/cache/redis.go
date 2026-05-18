@@ -8,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewClient(ctx context.Context) (*redis.Client, error) {
+func NewRedisClient(ctx context.Context) (*redis.Client, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
