@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE users (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT NOT NULL,
@@ -9,7 +10,12 @@ CREATE TABLE users (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at
   BEFORE UPDATE ON users
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- +goose Down
+DROP TABLE IF EXISTS users CASCADE;
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
