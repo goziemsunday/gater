@@ -31,6 +31,13 @@ func Write(w http.ResponseWriter, status int, data any) {
 	json.NewEncoder(w).Encode(data)
 }
 
+func WriteData(w http.ResponseWriter, status int, data any) {
+	type envelope struct {
+		Data any `json:"data"`
+	}
+	Write(w, status, &envelope{Data: data})
+}
+
 func WriteError(w http.ResponseWriter, status int, err any) {
 	var errors []string
 
