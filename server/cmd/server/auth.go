@@ -2,17 +2,17 @@ package main
 
 import "net/http"
 
-func (a *application) register(w http.ResponseWriter, r *http.Request) {
+func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 	w.Write([]byte("Not Implemented"))
 }
 
-func (a *application) login(w http.ResponseWriter, r *http.Request) {
+func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 	w.Write([]byte("Not Implemented"))
 }
 
-func (a *application) logout(w http.ResponseWriter, r *http.Request) {
+func (a *application) logoutUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 	w.Write([]byte("Not Implemented"))
 }
