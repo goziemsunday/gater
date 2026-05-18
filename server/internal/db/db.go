@@ -8,12 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewPool(ctx context.Context) (*pgxpool.Pool, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
-
+func NewPool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) {
 	// get DB config struct from DB URL
 	dbCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {

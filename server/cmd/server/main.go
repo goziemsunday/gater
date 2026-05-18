@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// database
-	pool, err := db.NewPool(ctx)
+	pool, err := db.NewPool(ctx, cfg)
 	if err != nil {
 		logger.Error("failed to create db pool", "error", err)
 		os.Exit(1)
@@ -36,10 +36,10 @@ func main() {
 	defer pool.Close()
 	logger.Info("database connection pool established")
 
-	// init dbStore
 	dbStore := store.New(pool)
 
 	emailer := mailer.New(cfg)
+
 	validator := validator.New()
 
 	// init app
