@@ -12,7 +12,7 @@ import (
 )
 
 //go:embed migrations/*.sql
-var embedMigrations embed.FS
+var migrations embed.FS
 
 func main() {
 	cfg, err := config.Load()
@@ -29,7 +29,7 @@ func main() {
 	defer db.Close()
 
 	// set up goose with embedded migrations
-	goose.SetBaseFS(embedMigrations)
+	goose.SetBaseFS(migrations)
 	if err := goose.SetDialect("postgres"); err != nil {
 		slog.Error("failed to set dialect", "error", err)
 		os.Exit(1)
