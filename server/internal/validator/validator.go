@@ -6,17 +6,22 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-type Validator struct {
+type Validator interface {
+	ValidateStruct(s any) ([]string, bool)
+	ValidateVar(variable any, tag string) error
+}
+
+type playgroundValidator struct {
 	v *validator.Validate
 }
 
-func New() *Validator {
-	return &Validator{
+func New() Validator {
+	return &playgroundValidator{
 		v: validator.New(validator.WithRequiredStructEnabled()),
 	}
 }
 
-func (v *Validator) ValidateStruct(s any) ([]string, bool) {
+func (v *playgroundValidator) ValidateStruct(s any) ([]string, bool) {
 	err := v.v.Struct(s)
 	if err == nil {
 		return nil, true
@@ -43,6 +48,6 @@ func (v *Validator) ValidateStruct(s any) ([]string, bool) {
 	return errMsgs, false
 }
 
-func (v *Validator) ValidateVar(variable any, tag string) error {
+func (v *playgroundValidator) ValidateVar(variable any, tag string) error {
 	return v.v.Var(variable, tag)
 }
