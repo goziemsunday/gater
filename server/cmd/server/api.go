@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chiagxziem/snipper/internal/config"
+	"github.com/chiagxziem/snipper/internal/validator"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -21,7 +22,8 @@ type application struct {
 	// store
 	// cache
 	// mailer
-	logger *slog.Logger
+	validator *validator.Validator
+	logger    *slog.Logger
 }
 
 func (a *application) mount() http.Handler {

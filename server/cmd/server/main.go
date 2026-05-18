@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/chiagxziem/snipper/internal/config"
+	"github.com/chiagxziem/snipper/internal/validator"
 )
 
 func main() {
@@ -15,14 +16,17 @@ func main() {
 	// load app config
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error(err.Error())
+		logger.Error(err.Error())
 		os.Exit(1)
 	}
 
+	validator := validator.New()
+
 	// init app
 	app := &application{
-		config: cfg,
-		logger: logger,
+		config:    cfg,
+		validator: validator,
+		logger:    logger,
 	}
 
 	if err := app.run(app.mount()); err != nil {
