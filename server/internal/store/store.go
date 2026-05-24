@@ -11,13 +11,17 @@ var queryTimeoutDuration = time.Second * 5
 
 type Store struct {
 	Users interface {
-		Create(ctx context.Context, params CreateUserParams) (*User, error)
+		Create(ctx context.Context, user *User) error
 		GetByEmail(ctx context.Context, email string) (*User, error)
+	}
+	Verifications interface {
+		Create(ctx context.Context, params CreateVerificationParams) error
 	}
 }
 
 func New(pool *pgxpool.Pool) Store {
 	return Store{
-		Users: &UserStore{pool},
+		Users:         &UserStore{pool},
+		Verifications: &VerificationStore{pool},
 	}
 }

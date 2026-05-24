@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/chiagxziem/snipper/internal/auth"
 	"github.com/chiagxziem/snipper/internal/json"
@@ -34,12 +36,14 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newUser, err := a.store.Users.Create(r.Context(), store.CreateUserParams{
+	user := &store.User{
 		Name:         payload.Name,
 		Email:        payload.Email,
 		PasswordHash: &hash,
 		Image:        nil,
-	})
+	}
+
+	err = a.store.Users.Create(r.Context(), user)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrEmailAlreadyExists):
@@ -51,13 +55,39 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// send verification email (this should be a goroutine, no?)
-	// 6. Send verification email (goroutine - don't block response)
-	// go func() {
-	//     a.mailer.SendVerificationEmail(newUser.Email, newUser.ID)
-	// }()
+	token, err := auth.GenerateToken()
+	if err != nil {
+		a.logger.Error("internal server error", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
 
-	json.WriteData(w, http.StatusCreated, newUser)
+	identifier := "email-verification:" + user.Email
+	expiresAt := time.Now().UTC().Add(time.Hour)
+
+	err = a.store.Verifications.Create(
+		r.Context(), store.CreateVerificationParams{
+			Identifier:  identifier,
+			HashedToken: token.Hash,
+			ExpiresAt:   expiresAt,
+		},
+	)
+	if err != nil {
+		a.logger.Error("internal server error", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	go func() {
+		err := a.mailer.SendVerificationEmail(
+			context.Background(), []string{user.Email}, user.Name, token.Plaintext,
+		)
+		if err != nil {
+			a.logger.Error("internal server error", "error", err)
+		}
+	}()
+
+	json.WriteData(w, http.StatusCreated, user)
 }
 
 func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type UserStore struct {
+	pool *pgxpool.Pool
+}
+
 type User struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
@@ -22,18 +26,7 @@ type User struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-type CreateUserParams struct {
-	Name         string
-	Email        string
-	PasswordHash *string // nil for oauth registrations
-	Image        *string
-}
-
-type UserStore struct {
-	pool *pgxpool.Pool
-}
-
-func (s *UserStore) Create(ctx context.Context, params CreateUserParams) (*User, error) {
+func (s *UserStore) Create(ctx context.Context, user *User) error {
 	query := `
     INSERT INTO users (name, email, password_hash, image)
     VALUES ($1, $2, $3, $4)
@@ -43,10 +36,9 @@ func (s *UserStore) Create(ctx context.Context, params CreateUserParams) (*User,
 	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
 	defer cancel()
 
-	var user User
 	err := s.pool.QueryRow(
-		ctx, query, params.Name, params.Email,
-		params.PasswordHash, params.Image,
+		ctx, query, user.Name, user.Email,
+		user.PasswordHash, user.Image,
 	).Scan(
 		&user.ID, &user.Name, &user.Email, &user.EmailVerified,
 		&user.Image, &user.CreatedAt, &user.UpdatedAt,
@@ -55,13 +47,13 @@ func (s *UserStore) Create(ctx context.Context, params CreateUserParams) (*User,
 	if err != nil {
 		switch {
 		case strings.Contains(err.Error(), "duplicate key"):
-			return nil, ErrEmailAlreadyExists
+			return ErrEmailAlreadyExists
 		default:
-			return nil, err
+			return err
 		}
 	}
 
-	return &user, nil
+	return nil
 }
 
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
