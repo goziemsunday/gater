@@ -8,12 +8,13 @@ http:
   url: "{{BASE_URL}}/api/auth/register"
   body:
     type: json
-    data: |
+    data: |+
       {
         "name": "Chiagoziem Sunday",
-        "email": "wtf"
-      //   "password": "12345678"
+        "email": "gozmansunday@gmail.com",
+        "password": "12345678"
       }
+
   auth: inherit
 
 settings:
