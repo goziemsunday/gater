@@ -96,7 +96,7 @@ func decodeHash(hash string) (params *HashParams, salt, key []byte, err error) {
 	}
 
 	var version int
-	_, err = fmt.Fscanf(r, "v=%d$", version)
+	_, err = fmt.Fscanf(r, "v=%d$", &version)
 	if err != nil {
 		return nil, nil, nil, err
 	}
