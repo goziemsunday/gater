@@ -1,19 +1,16 @@
 info:
-  name: register
+  name: resend-verification
   type: http
-  seq: 1
+  seq: 3
 
 http:
   method: POST
-  url: "{{BASE_URL}}/api/auth/register"
+  url: "{{BASE_URL}}/api/auth/resend-verification"
   body:
     type: json
     data: |+
       {
-        "name": "Chiagoziem Sunday",
-        "email": "gozmansunday@gmail.com",
-        
-        "password": "12345678"
+        "email": "gozmansunday@gmail.com"  
       }
 
 

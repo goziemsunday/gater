@@ -1,19 +1,16 @@
 info:
-  name: register
+  name: verify-email
   type: http
-  seq: 1
+  seq: 2
 
 http:
   method: POST
-  url: "{{BASE_URL}}/api/auth/register"
+  url: "{{BASE_URL}}/api/auth/verify-email"
   body:
     type: json
     data: |+
       {
-        "name": "Chiagoziem Sunday",
-        "email": "gozmansunday@gmail.com",
-        
-        "password": "12345678"
+        "token": "fa86a5a8f6dec69ba8c2d4ab364a2fce28c7e2dffa2bf34721ac40cad6ba50a6"
       }
 
 
