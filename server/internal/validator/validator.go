@@ -31,15 +31,21 @@ func (v *playgroundValidator) ValidateStruct(s any) ([]string, bool) {
 	var errMsgs []string
 	for _, e := range errs {
 		field := strings.ToLower(e.Field())
+		param := e.Param()
+
 		switch e.Tag() {
 		case "required":
 			errMsgs = append(errMsgs, field+" is required")
 		case "email":
 			errMsgs = append(errMsgs, "invalid email format")
+		case "hexadecimal":
+			errMsgs = append(errMsgs, field+" must be a valid hex string")
 		case "min":
 			errMsgs = append(errMsgs, field+" is too short")
 		case "max":
 			errMsgs = append(errMsgs, field+" is too long")
+		case "len":
+			errMsgs = append(errMsgs, field+" must be exactly "+param+" characters")
 		default:
 			errMsgs = append(errMsgs, field+" is invalid")
 		}
