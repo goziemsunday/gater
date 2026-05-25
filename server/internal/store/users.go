@@ -47,7 +47,7 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	if err != nil {
 		switch {
 		case strings.Contains(err.Error(), "duplicate key"):
-			return ErrEmailAlreadyExists
+			return ErrConflict
 		default:
 			return err
 		}
@@ -66,7 +66,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
 	defer cancel()
 
-	var user User
+	user := &User{}
 	err := s.pool.QueryRow(ctx, query, email).Scan(
 		&user.ID, &user.Name, &user.Email, &user.EmailVerified,
 		&user.Image, &user.CreatedAt, &user.UpdatedAt,
@@ -75,7 +75,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, ErrUserNotFound
+			return nil, ErrNotFound
 		default:
 			return nil, err
 		}

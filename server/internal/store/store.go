@@ -2,12 +2,17 @@ package store
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var queryTimeoutDuration = time.Second * 5
+var (
+	ErrConflict          = errors.New("resource already exists")
+	ErrNotFound          = errors.New("resource not found")
+	queryTimeoutDuration = time.Second * 5
+)
 
 type Store struct {
 	Users interface {

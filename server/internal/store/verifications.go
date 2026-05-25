@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -28,10 +29,7 @@ type CreateVerificationParams struct {
 	ExpiresAt   time.Time
 }
 
-func (v *VerificationStore) Create(
-	ctx context.Context,
-	params CreateVerificationParams,
-) error {
+func (v *VerificationStore) Create(ctx context.Context, params CreateVerificationParams) error {
 	query := `
     INSERT INTO verifications (identifier, value, expires_at)
     VALUES ($1, $2, $3)
