@@ -23,7 +23,10 @@ type Store struct {
 	Verifications interface {
 		Create(ctx context.Context, params CreateVerificationParams) error
 		Get(ctx context.Context, hashedToken string) (*Verifications, error)
+		GetLatest(ctx context.Context, identifier string) (*Verifications, error)
+		CountSince(ctx context.Context, identifier string, since time.Duration) (int, error)
 		Delete(ctx context.Context, ID string) error
+		DeleteByIdentifier(ctx context.Context, identifier string) error
 	}
 }
 

@@ -85,7 +85,14 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	json.WriteData(w, http.StatusCreated, user)
+	type returnData struct {
+		Message string      `json:"message"`
+		User    *store.User `json:"user"`
+	}
+	json.WriteData(w, http.StatusCreated, returnData{
+		Message: "account created successfully",
+		User:    user,
+	})
 }
 
 func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
@@ -163,16 +170,111 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type returnData struct {
-		Status string `json:"status"`
+		Message string `json:"message"`
 	}
 	json.WriteData(w, http.StatusOK, returnData{
-		Status: "OK",
+		Message: "email verified successfully",
 	})
 }
 
+type ResendVerificationPayload struct {
+	Email string `json:"email" validate:"required,email,max=255"`
+}
+
 func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
+	var payload ResendVerificationPayload
+	if err := json.Read(w, r, &payload); err != nil {
+		json.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
+		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		return
+	}
+
+	type returnData struct {
+		Message string `json:"message"`
+	}
+	const successMsg = "if the account with this email exists and is unverified, a verification email has been sent"
+
+	user, err := a.store.Users.GetByEmail(r.Context(), payload.Email)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		default:
+			a.logger.Error("failed to get user by email", "error", err)
+			json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		}
+		return
+	}
+
+	if user.EmailVerified {
+		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		return
+	}
+
+	identifier := "email-verification:" + user.Email
+
+	latestVerification, err := a.store.Verifications.GetLatest(r.Context(), identifier)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		a.logger.Error("failed to get latest verifications", "error", err)
+		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		return
+	}
+
+	verificationsCount, err := a.store.Verifications.CountSince(r.Context(), identifier, time.Hour)
+	if err != nil {
+		a.logger.Error("failed to get verifications count", "error", err)
+		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		return
+	}
+
+	// only allow resend if there are less than 5 verification tokens created in an hour and
+	// none created in the last 1 minute
+	allowResend := latestVerification == nil || (verificationsCount < 5 && time.Now().UTC().Add(-time.Minute).Compare(latestVerification.CreatedAt) == 1)
+
+	if !allowResend {
+		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		return
+	}
+
+	err = a.store.Verifications.DeleteByIdentifier(r.Context(), identifier)
+	if err != nil {
+		a.logger.Error("failed to delete verification(s)", "error", err)
+	}
+
+	token, err := auth.GenerateToken()
+	if err != nil {
+		a.logger.Error("failed to generate verification token", "error", err)
+		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		return
+	}
+
+	err = a.store.Verifications.Create(
+		r.Context(), store.CreateVerificationParams{
+			Identifier:  "email-verification:" + user.Email,
+			HashedToken: token.Hash,
+			ExpiresAt:   time.Now().UTC().Add(time.Hour),
+		},
+	)
+	if err != nil {
+		a.logger.Error("failed to create verification", "error", err)
+		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		return
+	}
+
+	go func() {
+		err := a.mailer.SendVerificationEmail(
+			context.Background(), []string{user.Email}, user.Name, token.Plaintext,
+		)
+		if err != nil {
+			a.logger.Error("failed to send verification mail", "error", err)
+		}
+	}()
+
+	json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 }
 
 func (a *application) forgotPwd(w http.ResponseWriter, r *http.Request) {

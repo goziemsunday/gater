@@ -42,6 +42,8 @@ func WriteError(w http.ResponseWriter, status int, err any) {
 	var errors []string
 
 	switch e := err.(type) {
+	case error:
+		errors = append(errors, e.Error())
 	case string:
 		errors = append(errors, e)
 	case []string:

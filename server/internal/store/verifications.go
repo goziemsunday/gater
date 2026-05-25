@@ -76,6 +76,58 @@ func (v *VerificationStore) Get(ctx context.Context, hashedToken string) (*Verif
 	return verification, nil
 }
 
+func (v *VerificationStore) GetLatest(ctx context.Context, identifier string) (*Verifications, error) {
+	query := `
+    SELECT id, identifier, value, expires_at, created_at, updated_at
+    FROM verifications
+    WHERE identifier = $1
+    ORDER BY created_at DESC
+    LIMIT 1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	verification := &Verifications{}
+	err := v.pool.QueryRow(ctx, query, identifier).Scan(
+		&verification.ID, &verification.Identifier, &verification.Value, &verification.ExpiresAt,
+		&verification.CreatedAt, &verification.UpdatedAt,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return verification, nil
+}
+
+func (v *VerificationStore) CountSince(ctx context.Context, identifier string, since time.Duration) (int, error) {
+	query := `
+    SELECT COUNT(*)
+    FROM verifications
+    WHERE identifier = $1
+    AND created_at > $2
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	count := 0
+	timeCutoff := time.Now().UTC().Add(-since)
+
+	err := v.pool.QueryRow(ctx, query, identifier, timeCutoff).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (v *VerificationStore) Delete(ctx context.Context, ID string) error {
 	query := `
     DELETE FROM verifications
@@ -86,6 +138,23 @@ func (v *VerificationStore) Delete(ctx context.Context, ID string) error {
 	defer cancel()
 
 	_, err := v.pool.Exec(ctx, query, ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (v *VerificationStore) DeleteByIdentifier(ctx context.Context, identifier string) error {
+	query := `
+    DELETE FROM verifications
+    WHERE identifier = $1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	_, err := v.pool.Exec(ctx, query, identifier)
 	if err != nil {
 		return err
 	}
