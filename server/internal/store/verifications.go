@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -45,6 +46,50 @@ func (v *VerificationStore) Create(
 	)
 	if err != nil {
 		return fmt.Errorf("create verification: %w", err)
+	}
+
+	return nil
+}
+
+func (v *VerificationStore) Get(ctx context.Context, hashedToken string) (*Verifications, error) {
+	query := `
+    SELECT id, identifier, value, expires_at
+    FROM verifications
+    WHERE value = $1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	verification := &Verifications{}
+	err := v.pool.QueryRow(ctx, query, hashedToken).Scan(
+		&verification.ID, &verification.Identifier, &verification.Value, &verification.ExpiresAt,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return verification, nil
+}
+
+func (v *VerificationStore) Delete(ctx context.Context, ID string) error {
+	query := `
+    DELETE FROM verifications
+    WHERE id = $1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	_, err := v.pool.Exec(ctx, query, ID)
+	if err != nil {
+		return err
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/chiagxziem/snipper/internal/auth"
@@ -105,9 +106,71 @@ func (a *application) getUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Not Implemented"))
 }
 
+type VerifyEmailPayload struct {
+	Token string `json:"token" validate:"required,hexadecimal,len=64"`
+}
+
 func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
+	var payload VerifyEmailPayload
+	if err := json.Read(w, r, &payload); err != nil {
+		json.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
+		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		return
+	}
+
+	hashedToken := auth.HashToken(payload.Token)
+
+	verification, err := a.store.Verifications.Get(r.Context(), hashedToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
+		default:
+			a.logger.Error("failed to get verification", "error", err)
+			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	// check if token has expired
+	if i := time.Now().UTC().Compare(verification.ExpiresAt); i >= 0 {
+		// delete token
+		if err := a.store.Verifications.Delete(r.Context(), verification.ID); err != nil {
+			a.logger.Error("failed to delete verification", "error", err)
+		}
+		json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
+		return
+	}
+
+	email, ok := strings.CutPrefix(verification.Identifier, "email-verification:")
+	if !ok {
+		a.logger.Error("unexpected verification identifier", "identifier", verification.Identifier)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	// mark user as verified
+	if err := a.store.Users.MarkVerified(r.Context(), email); err != nil {
+		a.logger.Error("failed to mark user as verified", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	// delete token
+	if err := a.store.Verifications.Delete(r.Context(), verification.ID); err != nil {
+		a.logger.Error("failed to delete verification", "error", err)
+	}
+
+	type returnData struct {
+		Status string `json:"status"`
+	}
+	json.WriteData(w, http.StatusOK, returnData{
+		Status: "OK",
+	})
 }
 
 func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Request) {

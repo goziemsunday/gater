@@ -81,5 +81,23 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 		}
 	}
 
-	return &user, nil
+	return user, nil
+}
+
+func (s *UserStore) MarkVerified(ctx context.Context, email string) error {
+	query := `
+    UPDATE users 
+    SET email_verified = $2
+    WHERE email = $1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	_, err := s.pool.Exec(ctx, query, email, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

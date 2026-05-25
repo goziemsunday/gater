@@ -30,6 +30,11 @@ func GenerateToken() (*Token, error) {
 	}, nil
 }
 
+func HashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
+}
+
 func CompareToken(token string, hash string) bool {
 	hashedToken := sha256.Sum256([]byte(token))
 
