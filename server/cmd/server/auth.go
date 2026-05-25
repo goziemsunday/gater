@@ -26,14 +26,14 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
-		json.WriteError(w, http.StatusBadRequest, errs)
+		json.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
 	}
 
 	hash, err := auth.HashPassword(payload.Password, nil)
 	if err != nil {
-		a.logger.Error("internal server error", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "internal server error")
+		a.logger.Error("failed to hash password", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -47,35 +47,32 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	err = a.store.Users.Create(r.Context(), user)
 	if err != nil {
 		switch {
-		case errors.Is(err, store.ErrEmailAlreadyExists):
+		case errors.Is(err, store.ErrConflict):
 			json.WriteError(w, http.StatusConflict, "email already registered")
 		default:
-			a.logger.Error("internal server error", "error", err)
-			json.WriteError(w, http.StatusInternalServerError, "internal server error")
+			a.logger.Error("failed to create user", "error", err)
+			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
 
 	token, err := auth.GenerateToken()
 	if err != nil {
-		a.logger.Error("internal server error", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "internal server error")
+		a.logger.Error("failed to generate verification token", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
-	identifier := "email-verification:" + user.Email
-	expiresAt := time.Now().UTC().Add(time.Hour)
-
 	err = a.store.Verifications.Create(
 		r.Context(), store.CreateVerificationParams{
-			Identifier:  identifier,
+			Identifier:  "email-verification:" + user.Email,
 			HashedToken: token.Hash,
-			ExpiresAt:   expiresAt,
+			ExpiresAt:   time.Now().UTC().Add(time.Hour),
 		},
 	)
 	if err != nil {
-		a.logger.Error("internal server error", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "internal server error")
+		a.logger.Error("failed to create verification", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -84,7 +81,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 			context.Background(), []string{user.Email}, user.Name, token.Plaintext,
 		)
 		if err != nil {
-			a.logger.Error("internal server error", "error", err)
+			a.logger.Error("failed to send verification mail", "error", err)
 		}
 	}()
 
