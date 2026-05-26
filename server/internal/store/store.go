@@ -20,6 +20,9 @@ type Store struct {
 		GetByEmail(ctx context.Context, email string) (*User, error)
 		MarkVerified(ctx context.Context, email string) error
 	}
+	Sessions interface {
+		Create(ctx context.Context, session *Session) error
+	}
 	Verifications interface {
 		Create(ctx context.Context, params CreateVerificationParams) error
 		Get(ctx context.Context, hashedToken string) (*Verifications, error)
@@ -33,6 +36,7 @@ type Store struct {
 func New(pool *pgxpool.Pool) Store {
 	return Store{
 		Users:         &UserStore{pool},
+		Sessions:      &SessionStore{pool},
 		Verifications: &VerificationStore{pool},
 	}
 }

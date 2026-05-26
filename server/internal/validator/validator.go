@@ -41,9 +41,9 @@ func (v *playgroundValidator) ValidateStruct(s any) ([]string, bool) {
 		case "hexadecimal":
 			errMsgs = append(errMsgs, field+" must be a valid hex string")
 		case "min":
-			errMsgs = append(errMsgs, field+" is too short")
+			errMsgs = append(errMsgs, field+" must have at least "+param+" characters")
 		case "max":
-			errMsgs = append(errMsgs, field+" is too long")
+			errMsgs = append(errMsgs, field+" must not have more than "+param+" characters")
 		case "len":
 			errMsgs = append(errMsgs, field+" must be exactly "+param+" characters")
 		default:

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -21,7 +22,7 @@ type RegisterUserPayload struct {
 func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	var payload RegisterUserPayload
 	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err.Error())
+		json.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -95,9 +96,107 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type LoginUserPayload struct {
+	Email    string `json:"email" validate:"required,email,max=255"`
+	Password string `json:"password" validate:"required,min=8,max=96"`
+}
+
 func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
+	var payload LoginUserPayload
+	if err := json.Read(w, r, &payload); err != nil {
+		json.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
+		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		return
+	}
+
+	user, err := a.store.Users.GetByEmail(r.Context(), payload.Email)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			json.WriteError(w, http.StatusUnauthorized, "invalid email or password")
+		default:
+			a.logger.Error("failed to get user by email", "error", err)
+			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	if user.PasswordHash == nil {
+		json.WriteError(w, http.StatusUnauthorized, "invalid email or password")
+		return
+	}
+
+	matched, err := auth.VerifyPassword(payload.Password, *user.PasswordHash)
+	if err != nil {
+		a.logger.Error("failed to verify password", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+	if !matched {
+		json.WriteError(w, http.StatusUnauthorized, "invalid email or password")
+		return
+	}
+
+	token, err := auth.GenerateToken()
+	if err != nil {
+		a.logger.Error("failed to generate token", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	ua := r.UserAgent()
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		a.logger.Error("failed to get IP address", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	session := &store.Session{
+		UserID:    user.ID,
+		TokenHash: token.Hash,
+		IPAddress: &ip,
+		UserAgent: &ua,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 30),
+	}
+
+	err = a.store.Sessions.Create(r.Context(), session)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrConflict):
+			a.logger.Error("failed to create session: duplicate tokens", "error", err)
+			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		default:
+			a.logger.Error("failed to create session", "error", err)
+			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	type returnData struct {
+		Message string      `json:"message"`
+		Token   string      `json:"token"`
+		User    *store.User `json:"user"`
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "snipper_auth_session",
+		Value:    token.Plaintext,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true, // only over HTTPS
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   60 * 60 * 24 * 30, // 30 days to expiry
+	})
+	json.WriteData(w, http.StatusOK, returnData{
+		Message: "logged in successfully",
+		Token:   token.Plaintext,
+		User:    user,
+	})
 }
 
 func (a *application) logoutUser(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +216,7 @@ type VerifyEmailPayload struct {
 func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	var payload VerifyEmailPayload
 	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err.Error())
+		json.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -184,7 +283,7 @@ type ResendVerificationPayload struct {
 func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Request) {
 	var payload ResendVerificationPayload
 	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err.Error())
+		json.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -205,7 +304,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 			json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 		default:
 			a.logger.Error("failed to get user by email", "error", err)
-			json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
@@ -220,14 +319,14 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	latestVerification, err := a.store.Verifications.GetLatest(r.Context(), identifier)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		a.logger.Error("failed to get latest verifications", "error", err)
-		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	verificationsCount, err := a.store.Verifications.CountSince(r.Context(), identifier, time.Hour)
 	if err != nil {
 		a.logger.Error("failed to get verifications count", "error", err)
-		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -248,7 +347,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	token, err := auth.GenerateToken()
 	if err != nil {
 		a.logger.Error("failed to generate verification token", "error", err)
-		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -261,7 +360,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	)
 	if err != nil {
 		a.logger.Error("failed to create verification", "error", err)
-		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
