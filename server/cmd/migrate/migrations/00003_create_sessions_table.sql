@@ -2,7 +2,7 @@
 CREATE TABLE sessions (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-  token       TEXT NOT NULL UNIQUE, -- SHA-256 hashed
+  token_hash  TEXT NOT NULL UNIQUE, -- SHA-256 hashed
   ip_address  TEXT,
   user_agent  TEXT,
   expires_at  TIMESTAMPTZ NOT NULL, -- 30 days from creation
@@ -10,7 +10,7 @@ CREATE TABLE sessions (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions (token);
+CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions (token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id);
 
 DROP TRIGGER IF EXISTS update_sessions_updated_at ON sessions;
