@@ -1,27 +1,5 @@
-# Snipper
+# Gater
 
-A fast, minimal URL shortener with click analytics, expiring links, and multi-user support.
+Gater is a backend API for event ticketing. Create events, manage ticket inventory, handle purchases, and check in attendees via QR code. Built to handle the hard parts: concurrent ticket purchases, waitlist promotion, and state management across the full event lifecycle. Built with Go, PostgreSQL, and Redis.
 
 > **This project is currently under active development and is not ready for use.**
-> Everything here is a work in progress so expect incomplete features, breaking changes, and missing documentation.
-
-## Stack
-
-- **Backend** — Go (Chi), PostgreSQL, Redis
-- **Frontend** — TanStack Start
-- **Deployment** — Docker
-
-## Status
-
-- [ ] Project scaffolding
-- [ ] Database & migrations
-- [ ] Auth (email + password, Google OAuth)
-- [ ] URL shortener core
-- [ ] Click analytics
-- [ ] Frontend
-- [ ] API documentation (Scalar)
-- [ ] Production deployment
-
----
-
-Check back later.

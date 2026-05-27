@@ -1,7 +1,7 @@
 opencollection: 1.0.0
 
 info:
-  name: snipper
+  name: gater
 config:
   proxy:
     inherit: true
