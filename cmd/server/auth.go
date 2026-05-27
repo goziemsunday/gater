@@ -204,11 +204,6 @@ func (a *application) logoutUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Not Implemented"))
 }
 
-func (a *application) getUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
-}
-
 type VerifyEmailPayload struct {
 	Token string `json:"token" validate:"required,hexadecimal,len=64"`
 }
@@ -330,8 +325,8 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// only allow resend if there are less than 5 verification tokens created in an hour and
-	// none created in the last 1 minute
+	// only allow resend if there are less than 5 verification tokens
+	//  created in an hour and none created in the last 1 minute
 	allowResend := latestVerification == nil || (verificationsCount < 5 && time.Now().UTC().Add(-time.Minute).Compare(latestVerification.CreatedAt) == 1)
 
 	if !allowResend {
