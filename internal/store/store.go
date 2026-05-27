@@ -17,11 +17,13 @@ var (
 type Store struct {
 	Users interface {
 		Create(ctx context.Context, user *User) error
+		GetByID(ctx context.Context, id string) (*User, error)
 		GetByEmail(ctx context.Context, email string) (*User, error)
 		MarkVerified(ctx context.Context, email string) error
 	}
 	Sessions interface {
 		Create(ctx context.Context, session *Session) error
+		Get(ctx context.Context, hashedToken string) (*Session, error)
 	}
 	Verifications interface {
 		Create(ctx context.Context, params CreateVerificationParams) error

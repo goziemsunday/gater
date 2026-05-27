@@ -2,10 +2,12 @@ package store
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,7 +30,7 @@ func (s *SessionStore) Create(ctx context.Context, session *Session) error {
 	query := `
     INSERT INTO sessions (user_id, token_hash, ip_address, user_agent, expires_at)
     VALUES ($1, $2, $3, $4, $5)
-    RETURNING id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, 
+    RETURNING id, user_id, token_hash, ip_address, user_agent, expires_at, created_at,
     updated_at
   `
 
@@ -53,4 +55,32 @@ func (s *SessionStore) Create(ctx context.Context, session *Session) error {
 	}
 
 	return nil
+}
+
+func (s *SessionStore) Get(ctx context.Context, hashedToken string) (*Session, error) {
+	query := `
+    SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, updated_at
+    FROM sessions
+    WHERE token_hash = $1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	session := &Session{}
+	err := s.pool.QueryRow(ctx, query, hashedToken).Scan(
+		&session.ID, &session.UserID, &session.TokenHash, &session.IPAddress,
+		&session.UserAgent, &session.ExpiresAt, &session.CreatedAt, &session.UpdatedAt,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return session, nil
 }
