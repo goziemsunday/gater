@@ -1,14 +1,14 @@
 info:
-  name: register
+  name: get-user
   type: http
-  seq: 1
+  seq: 5
 
 http:
-  method: POST
-  url: "{{BASE_URL}}/api/auth/register"
+  method: GET
+  url: "{{BASE_URL}}/api/auth/me"
   body:
     type: json
-    data: |-
+    data: |
       {
         "name": "Chiagoziem Sunday",
         "email": "gozmansunday@gmail.com",

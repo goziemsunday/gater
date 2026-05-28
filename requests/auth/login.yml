@@ -1,18 +1,18 @@
 info:
-  name: register
+  name: login
   type: http
-  seq: 1
+  seq: 4
 
 http:
   method: POST
-  url: "{{BASE_URL}}/api/auth/register"
+  url: "{{BASE_URL}}/api/auth/login"
   body:
     type: json
     data: |-
       {
-        "name": "Chiagoziem Sunday",
         "email": "gozmansunday@gmail.com",
         "password": "12345678"
+        
       }
   auth: inherit
 

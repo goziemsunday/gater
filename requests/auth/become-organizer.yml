@@ -1,17 +1,14 @@
 info:
-  name: resend-verification
+  name: become-organizer
   type: http
-  seq: 3
+  seq: 7
 
 http:
   method: POST
-  url: "{{BASE_URL}}/api/auth/resend-verification"
+  url: "{{BASE_URL}}/api/auth/become-organizer"
   body:
     type: json
-    data: |-
-      {
-        "email": "gozmansunday@gmail.com"  
-      }
+    data: ""
   auth: inherit
 
 settings:

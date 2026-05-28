@@ -8,12 +8,10 @@ http:
   url: "{{BASE_URL}}/api/auth/verify-email"
   body:
     type: json
-    data: |+
+    data: |-
       {
         "token": "0feeeee5faef1e4f04e2a4290e0e75b14d358c7eb04cde5676cb30a9b0433c77"
       }
-
-
   auth: inherit
 
 settings:

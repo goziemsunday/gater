@@ -15,9 +15,14 @@ config:
       bypassProxy: ""
 
 request:
+  auth:
+    type: bearer
+    token: "{{AUTH_TOKEN}}"
   variables:
     - name: BASE_URL
       value: http://localhost:8080
+    - name: AUTH_TOKEN
+      value: fdc8dcdf66fb4de4fb4aa5daa953fa92bd7a88f10171908389bd646a73cc7405
 bundled: false
 extensions:
   bruno:

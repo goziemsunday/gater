@@ -1,17 +1,14 @@
 info:
-  name: resend-verification
+  name: logout
   type: http
-  seq: 3
+  seq: 6
 
 http:
   method: POST
-  url: "{{BASE_URL}}/api/auth/resend-verification"
+  url: "{{BASE_URL}}/api/auth/logout"
   body:
     type: json
-    data: |-
-      {
-        "email": "gozmansunday@gmail.com"  
-      }
+    data: ""
   auth: inherit
 
 settings:
