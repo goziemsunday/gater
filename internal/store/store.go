@@ -15,12 +15,18 @@ var (
 	queryTimeoutDuration = time.Second * 5
 )
 
+const (
+	RoleOrganizer string = "organizer"
+	RoleAttendee  string = "attendee"
+)
+
 type Store struct {
 	Users interface {
 		Create(ctx context.Context, user *User) error
 		GetByID(ctx context.Context, id string) (*User, error)
 		GetByEmail(ctx context.Context, email string) (*User, error)
 		MarkVerified(ctx context.Context, email string) error
+		BecomeOrganizer(ctx context.Context, userID string) (*User, error)
 	}
 	Sessions interface {
 		Create(ctx context.Context, session *Session) error

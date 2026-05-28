@@ -32,7 +32,7 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	query := `
     INSERT INTO users (name, email, password_hash, image)
     VALUES ($1, $2, $3, $4)
-    RETURNING id, name, email, email_verified, image, role, created_at, updated_at
+    RETURNING id, name, email, password_hash, email_verified, image, role, created_at, updated_at
   `
 
 	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
@@ -42,7 +42,7 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 		ctx, query, user.Name, user.Email,
 		user.PasswordHash, user.Image,
 	).Scan(
-		&user.ID, &user.Name, &user.Email, &user.EmailVerified,
+		&user.ID, &user.Name, &user.Email, &user.PasswordHash, &user.EmailVerified,
 		&user.Image, &user.Role, &user.CreatedAt, &user.UpdatedAt,
 	)
 
@@ -132,4 +132,32 @@ func (s *UserStore) MarkVerified(ctx context.Context, email string) error {
 	}
 
 	return nil
+}
+
+func (s *UserStore) BecomeOrganizer(ctx context.Context, userID string) (*User, error) {
+	query := `
+    UPDATE users
+    SET role = $2
+    WHERE id = $1
+    RETURNING id, name, email, password_hash, email_verified, image, role, created_at, updated_at
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	user := &User{}
+	err := s.pool.QueryRow(ctx, query, userID, RoleOrganizer).Scan(
+		&user.ID, &user.Name, &user.Email, &user.PasswordHash, &user.EmailVerified,
+		&user.Image, &user.Role, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, fmt.Errorf("users.BecomeOrganizer: %w", ErrNotFound)
+		default:
+			return nil, fmt.Errorf("users.BecomeOrganizer: %w", err)
+		}
+	}
+
+	return user, nil
 }

@@ -89,27 +89,10 @@ func (a *application) mount() http.Handler {
 				r.Use(a.requireAuth)
 
 				r.Get("/me", a.getUser)
+				r.Post("/become-organizer", a.becomeOrganizer)
 				r.Post("/logout", a.logoutUser)
 			})
 		})
-
-		// protected routes
-		// r.Group(func(r chi.Router) {
-		// 	r.Use(a.requireAuth)
-
-		// 	// urls
-		// 	r.Route("/urls", func(r chi.Router) {
-		// 		r.Post("/", a.shortenURL)
-		// 		r.Get("/", a.listURLs)
-		// 		r.Get("/{slug}", a.getURL)
-		// 		r.Get("/{slug}/analytics", a.getURLAnalytics)
-		// 		r.Patch("/{slug}", a.updateURL)
-		// 		r.Delete("/{slug}", a.deleteURL)
-		// 	})
-
-		// 	// analytics
-		// 	r.Get("/analytics", a.getAnalytics)
-		// })
 	})
 
 	return r
