@@ -17,8 +17,14 @@ type Config struct {
 	ResendDomain      string
 }
 
+const (
+	EnvDevelopment = "development"
+	EnvProduction  = "production"
+)
+
 func (c *Config) validate() error {
 	required := map[string]string{
+		"ENV":                 c.Env,
 		"DATABASE_URL":        c.DatabaseURL,
 		"REDIS_URL":           c.RedisURL,
 		"CORS_ALLOWED_ORIGIN": c.CORSAllowedOrigin,
@@ -57,4 +63,8 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func (c *Config) IsProduction() bool {
+	return c.Env == EnvProduction || c.Env == "prod"
 }
