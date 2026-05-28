@@ -59,7 +59,7 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 
 func (s *UserStore) GetByID(ctx context.Context, id string) (*User, error) {
 	query := `
-    SELECT id, name, email, email_verified, image, role, created_at, updated_at
+    SELECT id, name, email, password_hash, email_verified, image, role, created_at, updated_at
     FROM users
     WHERE id = $1
   `
@@ -69,7 +69,7 @@ func (s *UserStore) GetByID(ctx context.Context, id string) (*User, error) {
 
 	user := &User{}
 	err := s.pool.QueryRow(ctx, query, id).Scan(
-		&user.ID, &user.Name, &user.Email, &user.EmailVerified,
+		&user.ID, &user.Name, &user.Email, &user.PasswordHash, &user.EmailVerified,
 		&user.Image, &user.Role, &user.CreatedAt, &user.UpdatedAt,
 	)
 
@@ -87,7 +87,7 @@ func (s *UserStore) GetByID(ctx context.Context, id string) (*User, error) {
 
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
 	query := `
-    SELECT id, name, email, email_verified, image, role, created_at, updated_at 
+    SELECT id, name, email, password_hash, email_verified, image, role, created_at, updated_at
     FROM users 
     WHERE email = $1
   `
@@ -97,7 +97,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 
 	user := &User{}
 	err := s.pool.QueryRow(ctx, query, email).Scan(
-		&user.ID, &user.Name, &user.Email, &user.EmailVerified,
+		&user.ID, &user.Name, &user.Email, &user.PasswordHash, &user.EmailVerified,
 		&user.Image, &user.Role, &user.CreatedAt, &user.UpdatedAt,
 	)
 
