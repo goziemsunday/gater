@@ -43,7 +43,7 @@ func (v *VerificationStore) Create(ctx context.Context, params CreateVerificatio
 		params.HashedToken, params.ExpiresAt,
 	)
 	if err != nil {
-		return fmt.Errorf("create verification: %w", err)
+		return fmt.Errorf("verifications.Create: %w", err)
 	}
 
 	return nil
@@ -67,9 +67,9 @@ func (v *VerificationStore) Get(ctx context.Context, hashedToken string) (*Verif
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, ErrNotFound
+			return nil, fmt.Errorf("verifications.Get: %w", ErrNotFound)
 		default:
-			return nil, err
+			return nil, fmt.Errorf("verifications.Get: %w", err)
 		}
 	}
 
@@ -97,9 +97,9 @@ func (v *VerificationStore) GetLatest(ctx context.Context, identifier string) (*
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, ErrNotFound
+			return nil, fmt.Errorf("verifications.GetLatest: %w", ErrNotFound)
 		default:
-			return nil, err
+			return nil, fmt.Errorf("verifications.GetLatest: %w", err)
 		}
 	}
 
@@ -122,7 +122,7 @@ func (v *VerificationStore) CountSince(ctx context.Context, identifier string, s
 
 	err := v.pool.QueryRow(ctx, query, identifier, timeCutoff).Scan(&count)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("verifications.CountSince: %w", err)
 	}
 
 	return count, nil
@@ -139,7 +139,7 @@ func (v *VerificationStore) Delete(ctx context.Context, ID string) error {
 
 	_, err := v.pool.Exec(ctx, query, ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("verifications.Delete: %w", err)
 	}
 
 	return nil
@@ -156,7 +156,7 @@ func (v *VerificationStore) DeleteByIdentifier(ctx context.Context, identifier s
 
 	_, err := v.pool.Exec(ctx, query, identifier)
 	if err != nil {
-		return err
+		return fmt.Errorf("verifications.DeleteByIdentifier: %w", err)
 	}
 
 	return nil

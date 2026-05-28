@@ -21,6 +21,7 @@ type RegisterUserPayload struct {
 
 func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
 
 	var payload RegisterUserPayload
 	if err := json.Read(w, r, &payload); err != nil {
@@ -35,7 +36,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(payload.Password, nil)
 	if err != nil {
-		a.logger.Error("failed to hash password", "error", err)
+		logger.Error("failed to hash password", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -53,7 +54,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, store.ErrConflict):
 			json.WriteError(w, http.StatusConflict, "email already registered")
 		default:
-			a.logger.Error("failed to create user", "error", err)
+			logger.Error("failed to create user", "error", err, "email", payload.Email)
 			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
@@ -61,7 +62,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.GenerateToken()
 	if err != nil {
-		a.logger.Error("failed to generate verification token", "error", err)
+		logger.Error("failed to generate verification token", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -74,7 +75,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if err != nil {
-		a.logger.Error("failed to create verification", "error", err)
+		logger.Error("failed to create verification", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -84,7 +85,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 			context.Background(), []string{user.Email}, user.Name, token.Plaintext,
 		)
 		if err != nil {
-			a.logger.Error("failed to send verification mail", "error", err)
+			logger.Error("failed to send verification mail", "error", err)
 		}
 	}()
 
@@ -105,6 +106,7 @@ type LoginUserPayload struct {
 
 func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
 
 	var payload LoginUserPayload
 	if err := json.Read(w, r, &payload); err != nil {
@@ -123,7 +125,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, store.ErrNotFound):
 			json.WriteError(w, http.StatusUnauthorized, "invalid email or password")
 		default:
-			a.logger.Error("failed to get user by email", "error", err)
+			logger.Error("failed to get user by email", "error", err, "email", payload.Email)
 			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
@@ -136,7 +138,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 
 	matched, err := auth.VerifyPassword(payload.Password, *user.PasswordHash)
 	if err != nil {
-		a.logger.Error("failed to verify password", "error", err)
+		logger.Error("failed to verify password", "error", err, "email", payload.Email)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -147,7 +149,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.GenerateToken()
 	if err != nil {
-		a.logger.Error("failed to generate token", "error", err)
+		logger.Error("failed to generate token", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -155,7 +157,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 	ua := r.UserAgent()
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		a.logger.Error("failed to get IP address", "error", err)
+		logger.Error("failed to get IP address", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -172,10 +174,10 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrConflict):
-			a.logger.Error("failed to create session: duplicate tokens", "error", err)
+			logger.Error("failed to create session", "error", err, "user_id", user.ID)
 			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		default:
-			a.logger.Error("failed to create session", "error", err)
+			logger.Error("failed to create session", "error", err)
 			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
@@ -214,6 +216,7 @@ type VerifyEmailPayload struct {
 
 func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
 
 	var payload VerifyEmailPayload
 	if err := json.Read(w, r, &payload); err != nil {
@@ -234,7 +237,7 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, store.ErrNotFound):
 			json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
 		default:
-			a.logger.Error("failed to get verification", "error", err)
+			logger.Error("failed to get verification", "error", err)
 			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
@@ -244,7 +247,7 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	if i := time.Now().UTC().Compare(verification.ExpiresAt); i >= 0 {
 		// delete token
 		if err := a.store.Verifications.Delete(ctx, verification.ID); err != nil {
-			a.logger.Error("failed to delete verification", "error", err)
+			logger.Error("failed to delete verification", "error", err)
 		}
 		json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
 		return
@@ -252,21 +255,21 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	email, ok := strings.CutPrefix(verification.Identifier, "email-verification:")
 	if !ok {
-		a.logger.Error("unexpected verification identifier", "identifier", verification.Identifier)
+		logger.Error("unexpected verification identifier", "identifier", verification.Identifier)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	// mark user as verified
 	if err := a.store.Users.MarkVerified(ctx, email); err != nil {
-		a.logger.Error("failed to mark user as verified", "error", err)
+		logger.Error("failed to mark user as verified", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	// delete token
 	if err := a.store.Verifications.Delete(ctx, verification.ID); err != nil {
-		a.logger.Error("failed to delete verification", "error", err)
+		logger.Error("failed to delete verification", "error", err)
 	}
 
 	type returnData struct {
@@ -283,6 +286,7 @@ type ResendVerificationPayload struct {
 
 func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
 
 	var payload ResendVerificationPayload
 	if err := json.Read(w, r, &payload); err != nil {
@@ -306,7 +310,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 		case errors.Is(err, store.ErrNotFound):
 			json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 		default:
-			a.logger.Error("failed to get user by email", "error", err)
+			logger.Error("failed to get user by email", "error", err)
 			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
@@ -321,14 +325,14 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 
 	latestVerification, err := a.store.Verifications.GetLatest(ctx, identifier)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		a.logger.Error("failed to get latest verifications", "error", err)
+		logger.Error("failed to get latest verifications", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	verificationsCount, err := a.store.Verifications.CountSince(ctx, identifier, time.Hour)
 	if err != nil {
-		a.logger.Error("failed to get verifications count", "error", err)
+		logger.Error("failed to get verifications count", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -344,12 +348,12 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 
 	err = a.store.Verifications.DeleteByIdentifier(ctx, identifier)
 	if err != nil {
-		a.logger.Error("failed to delete verification(s)", "error", err)
+		logger.Error("failed to delete verification(s)", "error", err)
 	}
 
 	token, err := auth.GenerateToken()
 	if err != nil {
-		a.logger.Error("failed to generate verification token", "error", err)
+		logger.Error("failed to generate verification token", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -362,7 +366,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 		},
 	)
 	if err != nil {
-		a.logger.Error("failed to create verification", "error", err)
+		logger.Error("failed to create verification", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -372,7 +376,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 			context.Background(), []string{user.Email}, user.Name, token.Plaintext,
 		)
 		if err != nil {
-			a.logger.Error("failed to send verification mail", "error", err)
+			logger.Error("failed to send verification mail", "error", err)
 		}
 	}()
 

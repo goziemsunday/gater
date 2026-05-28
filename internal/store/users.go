@@ -3,11 +3,12 @@ package store
 import (
 	"context"
 	"errors"
-	"strings"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -46,12 +47,11 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	)
 
 	if err != nil {
-		switch {
-		case strings.Contains(err.Error(), "duplicate key"):
-			return ErrConflict
-		default:
-			return err
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return fmt.Errorf("users.Create: %w", ErrConflict)
 		}
+		return fmt.Errorf("users.Create: %w", err)
 	}
 
 	return nil
@@ -76,9 +76,9 @@ func (s *UserStore) GetByID(ctx context.Context, id string) (*User, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, ErrNotFound
+			return nil, fmt.Errorf("users.GetByID: %w", ErrNotFound)
 		default:
-			return nil, err
+			return nil, fmt.Errorf("users.GetByID: %w", err)
 		}
 	}
 
@@ -104,9 +104,9 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, ErrNotFound
+			return nil, fmt.Errorf("users.GetByEmail: %w", ErrNotFound)
 		default:
-			return nil, err
+			return nil, fmt.Errorf("users.GetByEmail: %w", err)
 		}
 	}
 
@@ -123,9 +123,12 @@ func (s *UserStore) MarkVerified(ctx context.Context, email string) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
 	defer cancel()
 
-	_, err := s.pool.Exec(ctx, query, email, true)
+	ct, err := s.pool.Exec(ctx, query, email, true)
 	if err != nil {
-		return err
+		return fmt.Errorf("users.MarkVerified: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("users.MarkVerified: %w", ErrNotFound)
 	}
 
 	return nil

@@ -3,11 +3,12 @@ package store
 import (
 	"context"
 	"errors"
-	"strings"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -46,12 +47,11 @@ func (s *SessionStore) Create(ctx context.Context, session *Session) error {
 	)
 
 	if err != nil {
-		switch {
-		case strings.Contains(err.Error(), "duplicate key"):
-			return ErrConflict
-		default:
-			return err
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return fmt.Errorf("sessions.Create: %w", ErrConflict)
 		}
+		return fmt.Errorf("sessions.Create: %w", err)
 	}
 
 	return nil
@@ -77,9 +77,9 @@ func (s *SessionStore) Get(ctx context.Context, hashedToken string) (*Session, e
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, ErrNotFound
+			return nil, fmt.Errorf("sessions.Get: %w", ErrNotFound)
 		default:
-			return nil, err
+			return nil, fmt.Errorf("sessions.Get: %w", err)
 		}
 	}
 

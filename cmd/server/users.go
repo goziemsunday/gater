@@ -7,12 +7,13 @@ import (
 	"github.com/chiagxziem/gater/internal/store"
 )
 
-const userCtx contextKey = "user"
-
 func (a *application) getUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
+
 	user, ok := r.Context().Value(userCtx).(*store.User)
 	if !ok {
-		a.logger.Error("failed to get user from context")
+		logger.Error("failed to get user from context")
 		json.WriteError(w, http.StatusInternalServerError, "user not found in context")
 		return
 	}

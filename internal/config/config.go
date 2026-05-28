@@ -66,5 +66,5 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) IsProduction() bool {
-	return c.Env == EnvProduction || c.Env == "prod"
+	return c.Env == EnvProduction
 }
