@@ -20,7 +20,7 @@ func (a *application) requireAuth(next http.Handler) http.Handler {
 		}
 
 		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] == "Bearer" {
+		if len(parts) != 2 || parts[0] != "Bearer" {
 			json.WriteError(w, http.StatusUnauthorized, "malformed authorization header")
 			return
 		}

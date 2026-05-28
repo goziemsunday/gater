@@ -62,13 +62,14 @@ func (s *SessionStore) Get(ctx context.Context, hashedToken string) (*Session, e
     SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, updated_at
     FROM sessions
     WHERE token_hash = $1
+    AND expires_at > $2
   `
 
 	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
 	defer cancel()
 
 	session := &Session{}
-	err := s.pool.QueryRow(ctx, query, hashedToken).Scan(
+	err := s.pool.QueryRow(ctx, query, hashedToken, time.Now().UTC()).Scan(
 		&session.ID, &session.UserID, &session.TokenHash, &session.IPAddress,
 		&session.UserAgent, &session.ExpiresAt, &session.CreatedAt, &session.UpdatedAt,
 	)
