@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,6 +25,8 @@ type Store struct {
 	Sessions interface {
 		Create(ctx context.Context, session *Session) error
 		Get(ctx context.Context, hashedToken string) (*Session, error)
+		Delete(ctx context.Context, sessionID uuid.UUID) error
+		DeleteAll(ctx context.Context, userID uuid.UUID) error
 	}
 	Verifications interface {
 		Create(ctx context.Context, params CreateVerificationParams) error

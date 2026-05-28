@@ -56,6 +56,7 @@ func (a *application) requireAuth(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), userCtx, user)
+		ctx = context.WithValue(ctx, sessionCtx, session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

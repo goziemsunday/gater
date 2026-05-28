@@ -31,8 +31,9 @@ type application struct {
 type contextKey string
 
 const (
-	userCtx   contextKey = "user"
-	loggerCtx contextKey = "logger"
+	userCtx    contextKey = "user"
+	sessionCtx contextKey = "session"
+	loggerCtx  contextKey = "logger"
 )
 
 func (a *application) mount() http.Handler {

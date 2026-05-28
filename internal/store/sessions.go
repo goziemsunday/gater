@@ -85,3 +85,37 @@ func (s *SessionStore) Get(ctx context.Context, hashedToken string) (*Session, e
 
 	return session, nil
 }
+
+func (s *SessionStore) Delete(ctx context.Context, sessionID uuid.UUID) error {
+	query := `
+    DELETE FROM sessions
+    WHERE id = $1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	_, err := s.pool.Exec(ctx, query, sessionID)
+	if err != nil {
+		return fmt.Errorf("sessions.Delete: %w", err)
+	}
+
+	return nil
+}
+
+func (s *SessionStore) DeleteAll(ctx context.Context, userID uuid.UUID) error {
+	query := `
+    DELETE FROM sessions
+    WHERE user_id = $1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	_, err := s.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("sessions.DeleteAll: %w", err)
+	}
+
+	return nil
+}

@@ -206,8 +206,37 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *application) logoutUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
+	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
+
+	session, ok := ctx.Value(sessionCtx).(*store.Session)
+	if !ok {
+		logger.Error("failed to get session from context")
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	err := a.store.Sessions.Delete(ctx, session.ID)
+	if err != nil {
+		logger.Error("failed to delete session", "error", err, "session_id", session.ID)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	type returnData struct {
+		Message string `json:"message"`
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "gater_auth_session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   a.config.IsProduction(), // only over HTTPS in prod
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1, // to delete the cookie
+	})
+	json.WriteData(w, http.StatusOK, returnData{Message: "logged out successfully"})
 }
 
 type VerifyEmailPayload struct {
