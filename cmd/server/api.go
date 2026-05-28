@@ -27,6 +27,8 @@ type application struct {
 	logger    *slog.Logger
 }
 
+type contextKey string
+
 func (a *application) mount() http.Handler {
 	r := chi.NewRouter()
 
@@ -71,8 +73,8 @@ func (a *application) mount() http.Handler {
 			r.Group(func(r chi.Router) {
 				r.Use(a.requireAuth)
 
-				r.Post("/logout", a.logoutUser)
 				r.Get("/me", a.getUser)
+				r.Post("/logout", a.logoutUser)
 			})
 		})
 
@@ -93,7 +95,6 @@ func (a *application) mount() http.Handler {
 		// 	// analytics
 		// 	r.Get("/analytics", a.getAnalytics)
 		// })
-
 	})
 
 	return r

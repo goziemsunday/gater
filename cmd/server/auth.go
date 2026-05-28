@@ -20,6 +20,8 @@ type RegisterUserPayload struct {
 }
 
 func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var payload RegisterUserPayload
 	if err := json.Read(w, r, &payload); err != nil {
 		json.WriteError(w, http.StatusBadRequest, err)
@@ -45,7 +47,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 		Image:        nil,
 	}
 
-	err = a.store.Users.Create(r.Context(), user)
+	err = a.store.Users.Create(ctx, user)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrConflict):
@@ -65,7 +67,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.store.Verifications.Create(
-		r.Context(), store.CreateVerificationParams{
+		ctx, store.CreateVerificationParams{
 			Identifier:  "email-verification:" + user.Email,
 			HashedToken: token.Hash,
 			ExpiresAt:   time.Now().UTC().Add(time.Hour),
@@ -102,6 +104,8 @@ type LoginUserPayload struct {
 }
 
 func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var payload LoginUserPayload
 	if err := json.Read(w, r, &payload); err != nil {
 		json.WriteError(w, http.StatusBadRequest, err)
@@ -113,7 +117,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.store.Users.GetByEmail(r.Context(), payload.Email)
+	user, err := a.store.Users.GetByEmail(ctx, payload.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -164,7 +168,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 30),
 	}
 
-	err = a.store.Sessions.Create(r.Context(), session)
+	err = a.store.Sessions.Create(ctx, session)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrConflict):
@@ -188,7 +192,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		Value:    token.Plaintext,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true, // only over HTTPS
+		Secure:   a.config.IsProduction(), // only over HTTPS in prod
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   60 * 60 * 24 * 30, // 30 days to expiry
 	})
@@ -209,6 +213,8 @@ type VerifyEmailPayload struct {
 }
 
 func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var payload VerifyEmailPayload
 	if err := json.Read(w, r, &payload); err != nil {
 		json.WriteError(w, http.StatusBadRequest, err)
@@ -222,7 +228,7 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	hashedToken := auth.HashToken(payload.Token)
 
-	verification, err := a.store.Verifications.Get(r.Context(), hashedToken)
+	verification, err := a.store.Verifications.Get(ctx, hashedToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -237,7 +243,7 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	// check if token has expired
 	if i := time.Now().UTC().Compare(verification.ExpiresAt); i >= 0 {
 		// delete token
-		if err := a.store.Verifications.Delete(r.Context(), verification.ID); err != nil {
+		if err := a.store.Verifications.Delete(ctx, verification.ID); err != nil {
 			a.logger.Error("failed to delete verification", "error", err)
 		}
 		json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
@@ -252,14 +258,14 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// mark user as verified
-	if err := a.store.Users.MarkVerified(r.Context(), email); err != nil {
+	if err := a.store.Users.MarkVerified(ctx, email); err != nil {
 		a.logger.Error("failed to mark user as verified", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	// delete token
-	if err := a.store.Verifications.Delete(r.Context(), verification.ID); err != nil {
+	if err := a.store.Verifications.Delete(ctx, verification.ID); err != nil {
 		a.logger.Error("failed to delete verification", "error", err)
 	}
 
@@ -276,6 +282,8 @@ type ResendVerificationPayload struct {
 }
 
 func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var payload ResendVerificationPayload
 	if err := json.Read(w, r, &payload); err != nil {
 		json.WriteError(w, http.StatusBadRequest, err)
@@ -292,7 +300,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	}
 	const successMsg = "if the account with this email exists and is unverified, a verification email has been sent"
 
-	user, err := a.store.Users.GetByEmail(r.Context(), payload.Email)
+	user, err := a.store.Users.GetByEmail(ctx, payload.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -311,14 +319,14 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 
 	identifier := "email-verification:" + user.Email
 
-	latestVerification, err := a.store.Verifications.GetLatest(r.Context(), identifier)
+	latestVerification, err := a.store.Verifications.GetLatest(ctx, identifier)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		a.logger.Error("failed to get latest verifications", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
-	verificationsCount, err := a.store.Verifications.CountSince(r.Context(), identifier, time.Hour)
+	verificationsCount, err := a.store.Verifications.CountSince(ctx, identifier, time.Hour)
 	if err != nil {
 		a.logger.Error("failed to get verifications count", "error", err)
 		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
@@ -334,7 +342,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	err = a.store.Verifications.DeleteByIdentifier(r.Context(), identifier)
+	err = a.store.Verifications.DeleteByIdentifier(ctx, identifier)
 	if err != nil {
 		a.logger.Error("failed to delete verification(s)", "error", err)
 	}
@@ -347,7 +355,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	}
 
 	err = a.store.Verifications.Create(
-		r.Context(), store.CreateVerificationParams{
+		ctx, store.CreateVerificationParams{
 			Identifier:  "email-verification:" + user.Email,
 			HashedToken: token.Hash,
 			ExpiresAt:   time.Now().UTC().Add(time.Hour),
