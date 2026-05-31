@@ -79,7 +79,7 @@ func (a *application) mount() http.Handler {
 			r.Post("/login", a.loginUser)
 			r.Post("/verify-email", a.verifyEmail)
 			r.Post("/resend-verification", a.resendVerificationEmail)
-			r.Post("/forgot-password", a.forgotPwd)
+			r.Post("/forgot-password", a.forgotPassword)
 			r.Post("/reset-password", a.resetPwd)
 			r.Get("/google", a.google)
 			r.Get("/google/callback", a.googleCallback)

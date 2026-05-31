@@ -11,14 +11,16 @@ import (
 )
 
 type resendClient struct {
-	mailer *resend.Client
-	domain string
+	mailer      *resend.Client
+	domain      string
+	frontendURL string
 }
 
 func NewResendClient(cfg *config.Config) *resendClient {
 	return &resendClient{
-		mailer: resend.NewClient(cfg.ResendAPIKey),
-		domain: cfg.ResendDomain,
+		mailer:      resend.NewClient(cfg.ResendAPIKey),
+		domain:      cfg.ResendDomain,
+		frontendURL: cfg.FrontendURL,
 	}
 }
 
@@ -55,11 +57,33 @@ func (r *resendClient) SendVerificationEmail(
 	var body bytes.Buffer
 	err = tmpl.Execute(&body, map[string]string{
 		"Name":      name,
-		"VerifyURL": "http://localhost:3000/verify?token=" + token,
+		"VerifyURL": r.frontendURL + "/verify?token=" + token,
 	})
 	if err != nil {
 		return fmt.Errorf("execute template: %w", err)
 	}
 
 	return r.SendEmail(ctx, to, "Verify your email", body.String())
+}
+
+func (r *resendClient) SendPasswordResetEmail(
+	ctx context.Context,
+	to []string,
+	name, token string,
+) error {
+	tmpl, err := template.ParseFS(templates, "templates/password-reset.html")
+	if err != nil {
+		return fmt.Errorf("parse template: %w", err)
+	}
+
+	var body bytes.Buffer
+	err = tmpl.Execute(&body, map[string]string{
+		"Name":     name,
+		"ResetURL": r.frontendURL + "/password-reset?token=" + token,
+	})
+	if err != nil {
+		return fmt.Errorf("execute template: %w", err)
+	}
+
+	return r.SendEmail(ctx, to, "Reset your password", body.String())
 }

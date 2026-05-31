@@ -367,7 +367,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	}
 
 	// only allow resend if there are less than 5 verification tokens
-	//  created in an hour and none created in the last 1 minute
+	// created in an hour and none created in the last 1 minute
 	allowResend := latestVerification == nil || (verificationsCount < 5 && time.Now().UTC().Add(-time.Minute).Compare(latestVerification.CreatedAt) == 1)
 
 	if !allowResend {
@@ -389,7 +389,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 
 	err = a.store.Verifications.Create(
 		ctx, store.CreateVerificationParams{
-			Identifier:  "email-verification:" + user.Email,
+			Identifier:  identifier,
 			HashedToken: token.Hash,
 			ExpiresAt:   time.Now().UTC().Add(time.Hour),
 		},
@@ -412,9 +412,102 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 }
 
-func (a *application) forgotPwd(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
+type ForgotPasswordPayload struct {
+	Email string `json:"email" validate:"required,email,max=255"`
+}
+
+func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
+
+	var payload ForgotPasswordPayload
+	if err := json.Read(w, r, &payload); err != nil {
+		json.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
+		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		return
+	}
+
+	type returnData struct {
+		Message string `json:"message"`
+	}
+	const successMsg = "if the account with this email exists, a password reset email has been sent"
+
+	user, err := a.store.Users.GetByEmail(ctx, payload.Email)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		default:
+			logger.Error("failed to get user by email", "error", err)
+			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	identifier := "password-reset:" + user.Email
+
+	latestPasswordReset, err := a.store.Verifications.GetLatest(ctx, identifier)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		logger.Error("failed to get latest password resets", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	passwordResetsCount, err := a.store.Verifications.CountSince(ctx, identifier, time.Hour)
+	if err != nil {
+		logger.Error("failed to get password resets count", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	// only allow send if there are less than 5 password reset tokens
+	// created in an hour and none created in the last 1 minute
+	allowSend := latestPasswordReset == nil || (passwordResetsCount < 5 && time.Now().UTC().Add(-time.Minute).Compare(latestPasswordReset.CreatedAt) == 1)
+
+	if !allowSend {
+		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		return
+	}
+
+	err = a.store.Verifications.DeleteByIdentifier(ctx, identifier)
+	if err != nil {
+		logger.Error("failed to delete password reset(s)", "error", err)
+	}
+
+	token, err := auth.GenerateToken()
+	if err != nil {
+		logger.Error("failed to generate password reset token", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	err = a.store.Verifications.Create(
+		ctx, store.CreateVerificationParams{
+			Identifier:  identifier,
+			HashedToken: token.Hash,
+			ExpiresAt:   time.Now().UTC().Add(15 * time.Minute),
+		},
+	)
+	if err != nil {
+		logger.Error("failed to create password reset", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	go func() {
+		err := a.mailer.SendPasswordResetEmail(
+			context.Background(), []string{user.Email}, user.Name, token.Plaintext,
+		)
+		if err != nil {
+			logger.Error("failed to send password reset mail", "error", err)
+		}
+	}()
+
+	json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 }
 
 func (a *application) resetPwd(w http.ResponseWriter, r *http.Request) {
