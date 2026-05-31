@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/chiagxziem/gater/internal/auth"
-	"github.com/chiagxziem/gater/internal/json"
+	"github.com/chiagxziem/gater/internal/jsonutil"
 	"github.com/chiagxziem/gater/internal/store"
 )
 
@@ -18,13 +18,13 @@ func (a *application) requireAuth(next http.Handler) http.Handler {
 
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			json.WriteError(w, http.StatusUnauthorized, "missing authorization header")
+			jsonutil.WriteError(w, http.StatusUnauthorized, "missing authorization header")
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			json.WriteError(w, http.StatusUnauthorized, "malformed authorization header")
+			jsonutil.WriteError(w, http.StatusUnauthorized, "malformed authorization header")
 			return
 		}
 
@@ -35,10 +35,10 @@ func (a *application) requireAuth(next http.Handler) http.Handler {
 		if err != nil {
 			switch {
 			case errors.Is(err, store.ErrNotFound):
-				json.WriteError(w, http.StatusUnauthorized, "unauthorized")
+				jsonutil.WriteError(w, http.StatusUnauthorized, "unauthorized")
 			default:
 				logger.Error("failed to get session", "error", err, "hashed_token", hashedToken[:8]+"...")
-				json.WriteError(w, http.StatusUnauthorized, "unauthorized")
+				jsonutil.WriteError(w, http.StatusUnauthorized, "unauthorized")
 			}
 			return
 		}
@@ -47,10 +47,10 @@ func (a *application) requireAuth(next http.Handler) http.Handler {
 		if err != nil {
 			switch {
 			case errors.Is(err, store.ErrNotFound):
-				json.WriteError(w, http.StatusUnauthorized, "unauthorized")
+				jsonutil.WriteError(w, http.StatusUnauthorized, "unauthorized")
 			default:
 				logger.Error("failed to get user", "error", err, "session_id", session.ID)
-				json.WriteError(w, http.StatusUnauthorized, "unauthorized")
+				jsonutil.WriteError(w, http.StatusUnauthorized, "unauthorized")
 			}
 			return
 		}

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/chiagxziem/gater/internal/config"
-	"github.com/chiagxziem/gater/internal/json"
+	"github.com/chiagxziem/gater/internal/jsonutil"
 	"github.com/chiagxziem/gater/internal/mailer"
 	"github.com/chiagxziem/gater/internal/store"
 	"github.com/chiagxziem/gater/internal/validator"
@@ -62,10 +62,10 @@ func (a *application) mount() http.Handler {
 	r.Use(a.injectLogging)
 
 	r.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.WriteError(w, http.StatusNotFound, "route not found")
+		jsonutil.WriteError(w, http.StatusNotFound, "route not found")
 	}))
 	r.MethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
+		jsonutil.WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}))
 
 	// api routes
