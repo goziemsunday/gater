@@ -26,6 +26,7 @@ type Store struct {
 		GetByID(ctx context.Context, id string) (*User, error)
 		GetByEmail(ctx context.Context, email string) (*User, error)
 		MarkVerified(ctx context.Context, email string) error
+		ResetPassword(ctx context.Context, email, hashedPassword string) error
 		BecomeOrganizer(ctx context.Context, userID string) (*User, error)
 	}
 	Sessions interface {

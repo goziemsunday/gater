@@ -510,9 +510,92 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 }
 
-func (a *application) resetPwd(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
+type ResetPasswordPayload struct {
+	Token    string `json:"token" validate:"required,hexadecimal,len=64"`
+	Password string `json:"password" validate:"required,min=8,max=96"`
+}
+
+func (a *application) resetPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
+
+	var payload ResetPasswordPayload
+	if err := json.Read(w, r, &payload); err != nil {
+		json.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
+		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		return
+	}
+
+	hashedToken := auth.HashToken(payload.Token)
+
+	passwordReset, err := a.store.Verifications.Get(ctx, hashedToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
+		default:
+			logger.Error("failed to get password reset", "error", err)
+			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	// check if token has expired
+	if i := time.Now().UTC().Compare(passwordReset.ExpiresAt); i >= 0 {
+		// delete token
+		if err := a.store.Verifications.Delete(ctx, passwordReset.ID); err != nil {
+			logger.Error("failed to delete password reset", "error", err)
+		}
+		json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(payload.Password, nil)
+	if err != nil {
+		logger.Error("failed to hash password", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	email, ok := strings.CutPrefix(passwordReset.Identifier, "password-reset:")
+	if !ok {
+		logger.Error("unexpected password reset identifier", "identifier", passwordReset.Identifier)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	user, err := a.store.Users.GetByEmail(ctx, email)
+	if err != nil {
+		logger.Error("failed to get user by email", "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	if err := a.store.Users.ResetPassword(ctx, user.Email, hashedPassword); err != nil {
+		logger.Error("failed to reset password", "email", user.Email, "error", err)
+		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	if err := a.store.Verifications.Delete(ctx, passwordReset.ID); err != nil {
+		logger.Error("failed to delete password reset", "error", err)
+	}
+
+	// delete all user's sessions
+	if err := a.store.Sessions.DeleteAll(ctx, user.ID); err != nil {
+		logger.Error("failed to delete user's sessions", "error", err)
+	}
+
+	type returnData struct {
+		Message string `json:"message"`
+	}
+	json.WriteData(w, http.StatusOK, returnData{
+		Message: "password reset successfully",
+	})
 }
 
 func (a *application) google(w http.ResponseWriter, r *http.Request) {

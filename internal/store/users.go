@@ -134,6 +134,27 @@ func (s *UserStore) MarkVerified(ctx context.Context, email string) error {
 	return nil
 }
 
+func (s *UserStore) ResetPassword(ctx context.Context, email, hashedPassword string) error {
+	query := `
+    UPDATE users 
+    SET password_hash = $2
+    WHERE email = $1
+  `
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeoutDuration)
+	defer cancel()
+
+	ct, err := s.pool.Exec(ctx, query, email, hashedPassword)
+	if err != nil {
+		return fmt.Errorf("users.ResetPassword: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("users.ResetPassword: %w", ErrNotFound)
+	}
+
+	return nil
+}
+
 func (s *UserStore) BecomeOrganizer(ctx context.Context, userID string) (*User, error) {
 	query := `
     UPDATE users
