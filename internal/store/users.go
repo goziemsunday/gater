@@ -30,8 +30,8 @@ type User struct {
 
 func (s *UserStore) Create(ctx context.Context, user *User) error {
 	query := `
-    INSERT INTO users (name, email, password_hash, image)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO users (name, email, password_hash, image, email_verified)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING id, name, email, password_hash, email_verified, image, role, created_at, updated_at
   `
 
@@ -39,8 +39,8 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	defer cancel()
 
 	err := s.pool.QueryRow(
-		ctx, query, user.Name, user.Email,
-		user.PasswordHash, user.Image,
+		ctx, query, user.Name, user.Email, user.PasswordHash,
+		user.Image, user.EmailVerified,
 	).Scan(
 		&user.ID, &user.Name, &user.Email, &user.PasswordHash, &user.EmailVerified,
 		&user.Image, &user.Role, &user.CreatedAt, &user.UpdatedAt,

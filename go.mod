@@ -14,9 +14,11 @@ require (
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/resend/resend-go/v3 v3.6.0
 	golang.org/x/crypto v0.50.0
+	golang.org/x/oauth2 v0.36.0
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect

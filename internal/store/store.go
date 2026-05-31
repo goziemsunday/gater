@@ -43,6 +43,10 @@ type Store struct {
 		Delete(ctx context.Context, ID string) error
 		DeleteByIdentifier(ctx context.Context, identifier string) error
 	}
+	OAuthAccounts interface {
+		GetByProviderAndAccountID(ctx context.Context, provider, accountID string) (*OAuthAccount, error)
+		Create(ctx context.Context, account *OAuthAccount) error
+	}
 }
 
 func New(pool *pgxpool.Pool) Store {
@@ -50,5 +54,6 @@ func New(pool *pgxpool.Pool) Store {
 		Users:         &UserStore{pool},
 		Sessions:      &SessionStore{pool},
 		Verifications: &VerificationStore{pool},
+		OAuthAccounts: &OAuthStore{pool},
 	}
 }

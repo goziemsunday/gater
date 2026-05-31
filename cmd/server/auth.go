@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -9,8 +10,10 @@ import (
 	"time"
 
 	"github.com/chiagxziem/gater/internal/auth"
-	"github.com/chiagxziem/gater/internal/json"
+	"github.com/chiagxziem/gater/internal/jsonutil"
 	"github.com/chiagxziem/gater/internal/store"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 type RegisterUserPayload struct {
@@ -24,20 +27,20 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	logger := loggerFromCtx(ctx)
 
 	var payload RegisterUserPayload
-	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err)
+	if err := jsonutil.Read(w, r, &payload); err != nil {
+		jsonutil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
-		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
 	}
 
 	hash, err := auth.HashPassword(payload.Password, nil)
 	if err != nil {
 		logger.Error("failed to hash password", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -52,10 +55,10 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrConflict):
-			json.WriteError(w, http.StatusConflict, "email already registered")
+			jsonutil.WriteError(w, http.StatusConflict, "email already registered")
 		default:
 			logger.Error("failed to create user", "error", err, "email", payload.Email)
-			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
@@ -63,7 +66,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GenerateToken()
 	if err != nil {
 		logger.Error("failed to generate verification token", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -76,7 +79,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		logger.Error("failed to create verification", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -93,7 +96,7 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 		Message string      `json:"message"`
 		User    *store.User `json:"user"`
 	}
-	json.WriteData(w, http.StatusCreated, returnData{
+	jsonutil.WriteData(w, http.StatusCreated, returnData{
 		Message: "account created successfully",
 		User:    user,
 	})
@@ -109,13 +112,13 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 	logger := loggerFromCtx(ctx)
 
 	var payload LoginUserPayload
-	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err)
+	if err := jsonutil.Read(w, r, &payload); err != nil {
+		jsonutil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
-		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
 	}
 
@@ -123,34 +126,34 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			json.WriteError(w, http.StatusUnauthorized, "invalid email or password")
+			jsonutil.WriteError(w, http.StatusUnauthorized, "invalid email or password")
 		default:
 			logger.Error("failed to get user by email", "error", err, "email", payload.Email)
-			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
 
 	if user.PasswordHash == nil {
-		json.WriteError(w, http.StatusUnauthorized, "invalid email or password")
+		jsonutil.WriteError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
 
 	matched, err := auth.VerifyPassword(payload.Password, *user.PasswordHash)
 	if err != nil {
 		logger.Error("failed to verify password", "error", err, "email", payload.Email)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 	if !matched {
-		json.WriteError(w, http.StatusUnauthorized, "invalid email or password")
+		jsonutil.WriteError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
 
 	token, err := auth.GenerateToken()
 	if err != nil {
 		logger.Error("failed to generate token", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -158,7 +161,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		logger.Error("failed to get IP address", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -175,10 +178,10 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, store.ErrConflict):
 			logger.Error("failed to create session", "error", err, "user_id", user.ID)
-			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		default:
 			logger.Error("failed to create session", "error", err)
-			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
@@ -198,7 +201,7 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   60 * 60 * 24 * 30, // 30 days to expiry
 	})
-	json.WriteData(w, http.StatusOK, returnData{
+	jsonutil.WriteData(w, http.StatusOK, returnData{
 		Message: "logged in successfully",
 		Token:   token.Plaintext,
 		User:    user,
@@ -212,14 +215,14 @@ func (a *application) logoutUser(w http.ResponseWriter, r *http.Request) {
 	session, ok := ctx.Value(sessionCtx).(*store.Session)
 	if !ok {
 		logger.Error("failed to get session from context")
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	err := a.store.Sessions.Delete(ctx, session.ID)
 	if err != nil {
 		logger.Error("failed to delete session", "error", err, "session_id", session.ID)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -232,11 +235,11 @@ func (a *application) logoutUser(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   a.config.IsProduction(), // only over HTTPS in prod
+		Secure:   a.config.IsProduction(),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1, // to delete the cookie
 	})
-	json.WriteData(w, http.StatusOK, returnData{Message: "logged out successfully"})
+	jsonutil.WriteData(w, http.StatusOK, returnData{Message: "logged out successfully"})
 }
 
 type VerifyEmailPayload struct {
@@ -248,13 +251,13 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	logger := loggerFromCtx(ctx)
 
 	var payload VerifyEmailPayload
-	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err)
+	if err := jsonutil.Read(w, r, &payload); err != nil {
+		jsonutil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
-		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
 	}
 
@@ -264,10 +267,10 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
+			jsonutil.WriteError(w, http.StatusBadRequest, "invalid or expired token")
 		default:
 			logger.Error("failed to get verification", "error", err)
-			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
@@ -278,21 +281,21 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 		if err := a.store.Verifications.Delete(ctx, verification.ID); err != nil {
 			logger.Error("failed to delete verification", "error", err)
 		}
-		json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
+		jsonutil.WriteError(w, http.StatusBadRequest, "invalid or expired token")
 		return
 	}
 
 	email, ok := strings.CutPrefix(verification.Identifier, "email-verification:")
 	if !ok {
 		logger.Error("unexpected verification identifier", "identifier", verification.Identifier)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	// mark user as verified
 	if err := a.store.Users.MarkVerified(ctx, email); err != nil {
 		logger.Error("failed to mark user as verified", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -304,7 +307,7 @@ func (a *application) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	type returnData struct {
 		Message string `json:"message"`
 	}
-	json.WriteData(w, http.StatusOK, returnData{
+	jsonutil.WriteData(w, http.StatusOK, returnData{
 		Message: "email verified successfully",
 	})
 }
@@ -318,13 +321,13 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	logger := loggerFromCtx(ctx)
 
 	var payload ResendVerificationPayload
-	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err)
+	if err := jsonutil.Read(w, r, &payload); err != nil {
+		jsonutil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
-		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
 	}
 
@@ -337,16 +340,16 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+			jsonutil.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 		default:
 			logger.Error("failed to get user by email", "error", err)
-			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
 
 	if user.EmailVerified {
-		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		jsonutil.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 		return
 	}
 
@@ -355,14 +358,14 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	latestVerification, err := a.store.Verifications.GetLatest(ctx, identifier)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		logger.Error("failed to get latest verifications", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	verificationsCount, err := a.store.Verifications.CountSince(ctx, identifier, time.Hour)
 	if err != nil {
 		logger.Error("failed to get verifications count", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -371,7 +374,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	allowResend := latestVerification == nil || (verificationsCount < 5 && time.Now().UTC().Add(-time.Minute).Compare(latestVerification.CreatedAt) == 1)
 
 	if !allowResend {
-		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		jsonutil.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 		return
 	}
 
@@ -383,7 +386,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	token, err := auth.GenerateToken()
 	if err != nil {
 		logger.Error("failed to generate verification token", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -396,7 +399,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 	)
 	if err != nil {
 		logger.Error("failed to create verification", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -409,7 +412,7 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 		}
 	}()
 
-	json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+	jsonutil.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 }
 
 type ForgotPasswordPayload struct {
@@ -421,13 +424,13 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	logger := loggerFromCtx(ctx)
 
 	var payload ForgotPasswordPayload
-	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err)
+	if err := jsonutil.Read(w, r, &payload); err != nil {
+		jsonutil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
-		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
 	}
 
@@ -440,10 +443,10 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+			jsonutil.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 		default:
 			logger.Error("failed to get user by email", "error", err)
-			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
@@ -453,14 +456,14 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	latestPasswordReset, err := a.store.Verifications.GetLatest(ctx, identifier)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		logger.Error("failed to get latest password resets", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	passwordResetsCount, err := a.store.Verifications.CountSince(ctx, identifier, time.Hour)
 	if err != nil {
 		logger.Error("failed to get password resets count", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -469,7 +472,7 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	allowSend := latestPasswordReset == nil || (passwordResetsCount < 5 && time.Now().UTC().Add(-time.Minute).Compare(latestPasswordReset.CreatedAt) == 1)
 
 	if !allowSend {
-		json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+		jsonutil.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 		return
 	}
 
@@ -481,7 +484,7 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GenerateToken()
 	if err != nil {
 		logger.Error("failed to generate password reset token", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -494,7 +497,7 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		logger.Error("failed to create password reset", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -507,7 +510,7 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	json.WriteData(w, http.StatusOK, returnData{Message: successMsg})
+	jsonutil.WriteData(w, http.StatusOK, returnData{Message: successMsg})
 }
 
 type ResetPasswordPayload struct {
@@ -520,13 +523,13 @@ func (a *application) resetPassword(w http.ResponseWriter, r *http.Request) {
 	logger := loggerFromCtx(ctx)
 
 	var payload ResetPasswordPayload
-	if err := json.Read(w, r, &payload); err != nil {
-		json.WriteError(w, http.StatusBadRequest, err)
+	if err := jsonutil.Read(w, r, &payload); err != nil {
+		jsonutil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
-		json.WriteError(w, http.StatusUnprocessableEntity, errs)
+		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
 	}
 
@@ -536,10 +539,10 @@ func (a *application) resetPassword(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
+			jsonutil.WriteError(w, http.StatusBadRequest, "invalid or expired token")
 		default:
 			logger.Error("failed to get password reset", "error", err)
-			json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		}
 		return
 	}
@@ -550,34 +553,34 @@ func (a *application) resetPassword(w http.ResponseWriter, r *http.Request) {
 		if err := a.store.Verifications.Delete(ctx, passwordReset.ID); err != nil {
 			logger.Error("failed to delete password reset", "error", err)
 		}
-		json.WriteError(w, http.StatusBadRequest, "invalid or expired token")
+		jsonutil.WriteError(w, http.StatusBadRequest, "invalid or expired token")
 		return
 	}
 
 	hashedPassword, err := auth.HashPassword(payload.Password, nil)
 	if err != nil {
 		logger.Error("failed to hash password", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	email, ok := strings.CutPrefix(passwordReset.Identifier, "password-reset:")
 	if !ok {
 		logger.Error("unexpected password reset identifier", "identifier", passwordReset.Identifier)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	user, err := a.store.Users.GetByEmail(ctx, email)
 	if err != nil {
 		logger.Error("failed to get user by email", "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
 	if err := a.store.Users.ResetPassword(ctx, user.Email, hashedPassword); err != nil {
 		logger.Error("failed to reset password", "email", user.Email, "error", err)
-		json.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -593,17 +596,240 @@ func (a *application) resetPassword(w http.ResponseWriter, r *http.Request) {
 	type returnData struct {
 		Message string `json:"message"`
 	}
-	json.WriteData(w, http.StatusOK, returnData{
+	jsonutil.WriteData(w, http.StatusOK, returnData{
 		Message: "password reset successfully",
 	})
 }
 
 func (a *application) google(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
+	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
+
+	// build oauth2 config
+	oauth2Config := &oauth2.Config{
+		ClientID:     a.config.GoogleClientID,
+		ClientSecret: a.config.GoogleClientSecret,
+		RedirectURL:  a.config.GoogleRedirectURI,
+		Scopes:       []string{"email", "profile"},
+		Endpoint:     google.Endpoint,
+	}
+
+	state, err := auth.GenerateRandomOAuthState()
+	if err != nil {
+		logger.Error("failed to generate random oauth state", "error", err)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "gater_oauth_state",
+		Value:    state,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   a.config.IsProduction(),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   60 * 10, // 10 mins to expiry
+	})
+
+	url := oauth2Config.AuthCodeURL(state)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
 func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
+	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
+
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	stateCookie, err := r.Cookie("gater_oauth_state")
+	if err != nil {
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	if state != stateCookie.Value {
+		logger.Error("oauth state mismatch", "state", state)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	// clear the state cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "gater_oauth_state",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   a.config.IsProduction(),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1, // to delete the cookie
+	})
+
+	// build oauth2 config
+	oauth2Config := &oauth2.Config{
+		ClientID:     a.config.GoogleClientID,
+		ClientSecret: a.config.GoogleClientSecret,
+		RedirectURL:  a.config.GoogleRedirectURI,
+		Scopes:       []string{"email", "profile"},
+		Endpoint:     google.Endpoint,
+	}
+
+	oauth2Token, err := oauth2Config.Exchange(ctx, code)
+	if err != nil {
+		logger.Error("failed to convert oauth code into token", "error", err, "state", state)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	client := oauth2Config.Client(ctx, oauth2Token)
+	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if err != nil {
+		logger.Error("failed to get user", "error", err)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+	defer resp.Body.Close()
+
+	var googleUser struct {
+		ID      string `json:"id"`
+		Email   string `json:"email"`
+		Name    string `json:"name"`
+		Picture string `json:"picture"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&googleUser); err != nil {
+		logger.Error("failed to get user", "error", err)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	user := &store.User{}
+
+	// check if oauth account already exists
+	oauthAccount, err := a.store.OAuthAccounts.GetByProviderAndAccountID(
+		ctx,
+		"google",
+		googleUser.ID,
+	)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		logger.Error("failed to get oauth account", "error", err)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	if oauthAccount != nil {
+		// if oauth account exists, get user from it
+		user, err = a.store.Users.GetByID(ctx, oauthAccount.UserID.String())
+		if err != nil {
+			logger.Error("failed to get user", "error", err)
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+	} else {
+		// if there's no oauth account, get user from email
+		user, err = a.store.Users.GetByEmail(ctx, googleUser.Email)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			logger.Error("failed to get user", "error", err)
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		// if the user hasnt been created yet (new user), create a user
+		if user == nil {
+			user = &store.User{
+				Name:          googleUser.Name,
+				Email:         googleUser.Email,
+				Image:         &googleUser.Picture,
+				EmailVerified: true,
+			}
+
+			err := a.store.Users.Create(ctx, user)
+			if err != nil {
+				logger.Error("failed to create user", "error", err, "email", googleUser.Email)
+				jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+				return
+			}
+		}
+
+		// create oauth account linked to user
+		idToken, ok := oauth2Token.Extra("id_token").(string)
+		if !ok {
+			logger.Error("missing id_token")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		scope, ok := oauth2Token.Extra("scope").(string)
+		if !ok {
+			logger.Error("missing scope")
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		oa := &store.OAuthAccount{
+			UserID:               user.ID,
+			Provider:             "google",
+			ProviderAccountID:    googleUser.ID,
+			AccessToken:          oauth2Token.AccessToken,
+			RefreshToken:         oauth2Token.RefreshToken,
+			IDToken:              idToken,
+			AccessTokenExpiresAt: oauth2Token.Expiry,
+			Scope:                scope,
+		}
+
+		err = a.store.OAuthAccounts.Create(ctx, oa)
+		if err != nil {
+			logger.Error("failed to create oauth account", "error", err, "google_user_id", googleUser.ID)
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+	}
+
+	token, err := auth.GenerateToken()
+	if err != nil {
+		logger.Error("failed to generate token", "error", err)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	ua := r.UserAgent()
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		logger.Error("failed to get IP address", "error", err)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	session := &store.Session{
+		UserID:    user.ID,
+		TokenHash: token.Hash,
+		IPAddress: &ip,
+		UserAgent: &ua,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 30),
+	}
+
+	// create session
+	err = a.store.Sessions.Create(ctx, session)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrConflict):
+			logger.Error("failed to create session", "error", err, "user_id", user.ID)
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		default:
+			logger.Error("failed to create session", "error", err)
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "gater_auth_session",
+		Value:    token.Plaintext,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   a.config.IsProduction(), // only over HTTPS in prod
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   60 * 60 * 24 * 30, // 30 days to expiry
+	})
+
+	http.Redirect(w, r, a.config.FrontendURL, http.StatusFound)
 }
