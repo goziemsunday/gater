@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Env               string
 	Port              string
+	FrontendURL       string
 	DatabaseURL       string
 	RedisURL          string
 	CORSAllowedOrigin string
@@ -25,6 +26,7 @@ const (
 func (c *Config) validate() error {
 	required := map[string]string{
 		"ENV":                 c.Env,
+		"FRONTEND_URL":        c.FrontendURL,
 		"DATABASE_URL":        c.DatabaseURL,
 		"REDIS_URL":           c.RedisURL,
 		"CORS_ALLOWED_ORIGIN": c.CORSAllowedOrigin,
@@ -51,6 +53,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Env:               os.Getenv("ENV"),
 		Port:              os.Getenv("PORT"),
+		FrontendURL:       os.Getenv("FRONTEND_URL"),
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		RedisURL:          os.Getenv("REDIS_URL"),
 		CORSAllowedOrigin: os.Getenv("CORS_ALLOWED_ORIGIN"),
