@@ -56,9 +56,9 @@ func (s *OAuthStore) GetByProviderAndAccountID(
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, fmt.Errorf("oauthAccounts.GetByProviderAndAccountID: %w", ErrNotFound)
+			return nil, fmt.Errorf("store: get oauth account: %w", ErrNotFound)
 		default:
-			return nil, fmt.Errorf("oauthAccounts.GetByProviderAndAccountID: %w", err)
+			return nil, fmt.Errorf("store: get oauth account: %w", err)
 		}
 	}
 
@@ -91,9 +91,9 @@ func (s *OAuthStore) Create(ctx context.Context, account *OAuthAccount) error {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return fmt.Errorf("oauthAccounts.Create: %w", ErrConflict)
+			return fmt.Errorf("store: create oauth account: %w", ErrConflict)
 		}
-		return fmt.Errorf("oauthAccounts.Create: %w", err)
+		return fmt.Errorf("store: create oauth account: %w", err)
 	}
 
 	return nil

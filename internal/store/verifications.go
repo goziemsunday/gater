@@ -43,7 +43,7 @@ func (v *VerificationStore) Create(ctx context.Context, params CreateVerificatio
 		params.HashedToken, params.ExpiresAt,
 	)
 	if err != nil {
-		return fmt.Errorf("verifications.Create: %w", err)
+		return fmt.Errorf("store: create verification: %w", err)
 	}
 
 	return nil
@@ -67,9 +67,9 @@ func (v *VerificationStore) Get(ctx context.Context, hashedToken string) (*Verif
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, fmt.Errorf("verifications.Get: %w", ErrNotFound)
+			return nil, fmt.Errorf("store: get verification: %w", ErrNotFound)
 		default:
-			return nil, fmt.Errorf("verifications.Get: %w", err)
+			return nil, fmt.Errorf("store: get verification: %w", err)
 		}
 	}
 
@@ -97,9 +97,9 @@ func (v *VerificationStore) GetLatest(ctx context.Context, identifier string) (*
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, fmt.Errorf("verifications.GetLatest: %w", ErrNotFound)
+			return nil, fmt.Errorf("store: get latest verification: %w", ErrNotFound)
 		default:
-			return nil, fmt.Errorf("verifications.GetLatest: %w", err)
+			return nil, fmt.Errorf("store: get latest verification: %w", err)
 		}
 	}
 
@@ -122,7 +122,7 @@ func (v *VerificationStore) CountSince(ctx context.Context, identifier string, s
 
 	err := v.pool.QueryRow(ctx, query, identifier, timeCutoff).Scan(&count)
 	if err != nil {
-		return 0, fmt.Errorf("verifications.CountSince: %w", err)
+		return 0, fmt.Errorf("store: count verifications since: %w", err)
 	}
 
 	return count, nil
@@ -139,7 +139,7 @@ func (v *VerificationStore) Delete(ctx context.Context, ID string) error {
 
 	_, err := v.pool.Exec(ctx, query, ID)
 	if err != nil {
-		return fmt.Errorf("verifications.Delete: %w", err)
+		return fmt.Errorf("store: delete verification: %w", err)
 	}
 
 	return nil
@@ -156,7 +156,7 @@ func (v *VerificationStore) DeleteByIdentifier(ctx context.Context, identifier s
 
 	_, err := v.pool.Exec(ctx, query, identifier)
 	if err != nil {
-		return fmt.Errorf("verifications.DeleteByIdentifier: %w", err)
+		return fmt.Errorf("store: delete verification by identifier: %w", err)
 	}
 
 	return nil

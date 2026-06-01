@@ -49,9 +49,9 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return fmt.Errorf("users.Create: %w", ErrConflict)
+			return fmt.Errorf("store: create user: %w", ErrConflict)
 		}
-		return fmt.Errorf("users.Create: %w", err)
+		return fmt.Errorf("store: create user: %w", err)
 	}
 
 	return nil
@@ -76,9 +76,9 @@ func (s *UserStore) GetByID(ctx context.Context, id string) (*User, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, fmt.Errorf("users.GetByID: %w", ErrNotFound)
+			return nil, fmt.Errorf("store: get user by id: %w", ErrNotFound)
 		default:
-			return nil, fmt.Errorf("users.GetByID: %w", err)
+			return nil, fmt.Errorf("store: get user by id: %w", err)
 		}
 	}
 
@@ -104,9 +104,9 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, fmt.Errorf("users.GetByEmail: %w", ErrNotFound)
+			return nil, fmt.Errorf("store: get user by email: %w", ErrNotFound)
 		default:
-			return nil, fmt.Errorf("users.GetByEmail: %w", err)
+			return nil, fmt.Errorf("store: get user by email: %w", err)
 		}
 	}
 
@@ -125,10 +125,10 @@ func (s *UserStore) MarkVerified(ctx context.Context, email string) error {
 
 	ct, err := s.pool.Exec(ctx, query, email, true)
 	if err != nil {
-		return fmt.Errorf("users.MarkVerified: %w", err)
+		return fmt.Errorf("store: mark user verified: %w", err)
 	}
 	if ct.RowsAffected() == 0 {
-		return fmt.Errorf("users.MarkVerified: %w", ErrNotFound)
+		return fmt.Errorf("store: mark user verified: %w", ErrNotFound)
 	}
 
 	return nil
@@ -146,10 +146,10 @@ func (s *UserStore) ResetPassword(ctx context.Context, email, hashedPassword str
 
 	ct, err := s.pool.Exec(ctx, query, email, hashedPassword)
 	if err != nil {
-		return fmt.Errorf("users.ResetPassword: %w", err)
+		return fmt.Errorf("store: reset password: %w", err)
 	}
 	if ct.RowsAffected() == 0 {
-		return fmt.Errorf("users.ResetPassword: %w", ErrNotFound)
+		return fmt.Errorf("store: reset password: %w", ErrNotFound)
 	}
 
 	return nil
@@ -174,9 +174,9 @@ func (s *UserStore) BecomeOrganizer(ctx context.Context, userID string) (*User, 
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, fmt.Errorf("users.BecomeOrganizer: %w", ErrNotFound)
+			return nil, fmt.Errorf("store: become organizer: %w", ErrNotFound)
 		default:
-			return nil, fmt.Errorf("users.BecomeOrganizer: %w", err)
+			return nil, fmt.Errorf("store: become organizer: %w", err)
 		}
 	}
 

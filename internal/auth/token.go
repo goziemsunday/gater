@@ -17,7 +17,7 @@ func GenerateToken() (*Token, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
-		return nil, fmt.Errorf("generate token: %w", err)
+		return nil, fmt.Errorf("auth: generate token: %w", err)
 	}
 
 	plaintext := hex.EncodeToString(b)

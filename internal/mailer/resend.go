@@ -38,7 +38,7 @@ func (r *resendClient) SendEmail(
 
 	_, err := r.mailer.Emails.SendWithContext(ctx, params)
 	if err != nil {
-		return fmt.Errorf("send email: %w", err)
+		return fmt.Errorf("mailer: send email: %w", err)
 	}
 
 	return nil
@@ -51,7 +51,7 @@ func (r *resendClient) SendVerificationEmail(
 ) error {
 	tmpl, err := template.ParseFS(templates, "templates/verification.html")
 	if err != nil {
-		return fmt.Errorf("parse template: %w", err)
+		return fmt.Errorf("mailer: parse template: %w", err)
 	}
 
 	var body bytes.Buffer
@@ -60,7 +60,7 @@ func (r *resendClient) SendVerificationEmail(
 		"VerifyURL": r.frontendURL + "/verify?token=" + token,
 	})
 	if err != nil {
-		return fmt.Errorf("execute template: %w", err)
+		return fmt.Errorf("mailer: execute template: %w", err)
 	}
 
 	return r.SendEmail(ctx, to, "Verify your email", body.String())
@@ -73,7 +73,7 @@ func (r *resendClient) SendPasswordResetEmail(
 ) error {
 	tmpl, err := template.ParseFS(templates, "templates/password-reset.html")
 	if err != nil {
-		return fmt.Errorf("parse template: %w", err)
+		return fmt.Errorf("mailer: parse template: %w", err)
 	}
 
 	var body bytes.Buffer
@@ -82,7 +82,7 @@ func (r *resendClient) SendPasswordResetEmail(
 		"ResetURL": r.frontendURL + "/password-reset?token=" + token,
 	})
 	if err != nil {
-		return fmt.Errorf("execute template: %w", err)
+		return fmt.Errorf("mailer: execute template: %w", err)
 	}
 
 	return r.SendEmail(ctx, to, "Reset your password", body.String())

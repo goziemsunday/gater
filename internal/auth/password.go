@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	errInvalidHash         = errors.New("argon2id: hash is not in the correct format")
-	errIncompatibleVariant = errors.New("argon2id: incompatible variant of argon2")
-	errIncompatibleVersion = errors.New("argon2id: incompatible version of argon2")
+	errInvalidHash         = errors.New("auth: argon2id hash is not in the correct format")
+	errIncompatibleVariant = errors.New("auth: incompatible argon2 variant")
+	errIncompatibleVersion = errors.New("auth: incompatible argon2 version")
 )
 
 type HashParams struct {

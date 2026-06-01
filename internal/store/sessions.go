@@ -49,9 +49,9 @@ func (s *SessionStore) Create(ctx context.Context, session *Session) error {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return fmt.Errorf("sessions.Create: %w", ErrConflict)
+			return fmt.Errorf("store: create session: %w", ErrConflict)
 		}
-		return fmt.Errorf("sessions.Create: %w", err)
+		return fmt.Errorf("store: create session: %w", err)
 	}
 
 	return nil
@@ -77,9 +77,9 @@ func (s *SessionStore) Get(ctx context.Context, hashedToken string) (*Session, e
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, fmt.Errorf("sessions.Get: %w", ErrNotFound)
+			return nil, fmt.Errorf("store: get session: %w", ErrNotFound)
 		default:
-			return nil, fmt.Errorf("sessions.Get: %w", err)
+			return nil, fmt.Errorf("store: get session: %w", err)
 		}
 	}
 
@@ -97,7 +97,7 @@ func (s *SessionStore) Delete(ctx context.Context, sessionID uuid.UUID) error {
 
 	_, err := s.pool.Exec(ctx, query, sessionID)
 	if err != nil {
-		return fmt.Errorf("sessions.Delete: %w", err)
+		return fmt.Errorf("store: delete session: %w", err)
 	}
 
 	return nil
@@ -114,7 +114,7 @@ func (s *SessionStore) DeleteAll(ctx context.Context, userID uuid.UUID) error {
 
 	_, err := s.pool.Exec(ctx, query, userID)
 	if err != nil {
-		return fmt.Errorf("sessions.DeleteAll: %w", err)
+		return fmt.Errorf("store: delete all sessions: %w", err)
 	}
 
 	return nil

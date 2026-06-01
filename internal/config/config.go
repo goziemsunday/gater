@@ -42,7 +42,7 @@ func (c *Config) validate() error {
 
 	for k, v := range required {
 		if v == "" {
-			return fmt.Errorf("missing required environment variable: %s", k)
+			return fmt.Errorf("config: missing required environment variable: %s", k)
 		}
 	}
 

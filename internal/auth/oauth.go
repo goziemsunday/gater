@@ -10,7 +10,7 @@ func GenerateRandomOAuthState() (string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
-		return "", fmt.Errorf("auth.GenerateRandomOAuthState: %w", err)
+		return "", fmt.Errorf("auth: generate oauth state: %w", err)
 	}
 
 	plaintext := hex.EncodeToString(b)

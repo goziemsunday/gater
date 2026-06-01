@@ -644,13 +644,13 @@ func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
 
 	stateCookie, err := r.Cookie("gater_oauth_state")
 	if err != nil {
-		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusBadRequest, "missing or invalid state")
 		return
 	}
 
 	if state != stateCookie.Value {
 		logger.Error("oauth state mismatch", "state", state)
-		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		jsonutil.WriteError(w, http.StatusBadRequest, "invalid state")
 		return
 	}
 
