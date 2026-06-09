@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net"
@@ -31,6 +32,8 @@ func (a *application) registerUser(w http.ResponseWriter, r *http.Request) {
 		jsonutil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+
+	payload.Email = strings.ToLower(payload.Email)
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
 		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
@@ -117,6 +120,8 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	payload.Email = strings.ToLower(payload.Email)
+
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
 		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
@@ -150,13 +155,6 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.GenerateToken()
-	if err != nil {
-		logger.Error("failed to generate token", "error", err)
-		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
-		return
-	}
-
 	ua := r.UserAgent()
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -165,24 +163,43 @@ func (a *application) loginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := &store.Session{
-		UserID:    user.ID,
-		TokenHash: token.Hash,
-		IPAddress: &ip,
-		UserAgent: &ua,
-		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 30),
-	}
+	var token *auth.Token
+	var sessionCreated bool
 
-	err = a.store.Sessions.Create(ctx, session)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrConflict):
+	// try to create session token and user session, retry twice if a collision occurs
+	for range 3 {
+		token, err = auth.GenerateToken()
+		if err != nil {
+			logger.Error("failed to generate token", "error", err)
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		session := &store.Session{
+			UserID:    user.ID,
+			TokenHash: token.Hash,
+			IPAddress: &ip,
+			UserAgent: &ua,
+			ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 30),
+		}
+
+		err = a.store.Sessions.Create(ctx, session)
+		if errors.Is(err, store.ErrConflict) {
+			continue
+		}
+		if err != nil {
 			logger.Error("failed to create session", "error", err, "user_id", user.ID)
 			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
-		default:
-			logger.Error("failed to create session", "error", err)
-			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
 		}
+
+		sessionCreated = true
+		break
+	}
+
+	if !sessionCreated {
+		logger.Error("failed to create session")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
@@ -326,6 +343,8 @@ func (a *application) resendVerificationEmail(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	payload.Email = strings.ToLower(payload.Email)
+
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
 		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
 		return
@@ -428,6 +447,8 @@ func (a *application) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		jsonutil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+
+	payload.Email = strings.ToLower(payload.Email)
 
 	if errs, ok := a.validator.ValidateStruct(&payload); !ok {
 		jsonutil.WriteError(w, http.StatusUnprocessableEntity, errs)
@@ -579,7 +600,7 @@ func (a *application) resetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.store.Users.ResetPassword(ctx, user.Email, hashedPassword); err != nil {
-		logger.Error("failed to reset password", "email", user.Email, "error", err)
+		logger.Error("failed to reset password", "error", err, "email", user.Email)
 		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -601,18 +622,22 @@ func (a *application) resetPassword(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (a *application) google(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	logger := loggerFromCtx(ctx)
-
-	// build oauth2 config
-	oauth2Config := &oauth2.Config{
+func (a *application) googleOAuthConfig() *oauth2.Config {
+	return &oauth2.Config{
 		ClientID:     a.config.GoogleClientID,
 		ClientSecret: a.config.GoogleClientSecret,
 		RedirectURL:  a.config.GoogleRedirectURI,
 		Scopes:       []string{"email", "profile"},
 		Endpoint:     google.Endpoint,
 	}
+}
+
+func (a *application) google(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := loggerFromCtx(ctx)
+
+	// build oauth2 config
+	oauth2Config := a.googleOAuthConfig()
 
 	state, err := auth.GenerateRandomOAuthState()
 	if err != nil {
@@ -648,7 +673,8 @@ func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if state != stateCookie.Value {
+	// if state != stateCookie.Value {
+	if subtle.ConstantTimeCompare([]byte(state), []byte(stateCookie.Value)) == 0 {
 		logger.Error("oauth state mismatch", "state", state)
 		jsonutil.WriteError(w, http.StatusBadRequest, "invalid state")
 		return
@@ -666,13 +692,7 @@ func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// build oauth2 config
-	oauth2Config := &oauth2.Config{
-		ClientID:     a.config.GoogleClientID,
-		ClientSecret: a.config.GoogleClientSecret,
-		RedirectURL:  a.config.GoogleRedirectURI,
-		Scopes:       []string{"email", "profile"},
-		Endpoint:     google.Endpoint,
-	}
+	oauth2Config := a.googleOAuthConfig()
 
 	oauth2Token, err := oauth2Config.Exchange(ctx, code)
 	if err != nil {
@@ -682,13 +702,19 @@ func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := oauth2Config.Client(ctx, oauth2Token)
-	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	resp, err := client.Get("https://openidconnect.googleapis.com/v1/userinfo")
 	if err != nil {
 		logger.Error("failed to get user", "error", err)
 		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("failed to get user", "error", err)
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return
+	}
 
 	var googleUser struct {
 		ID      string `json:"id"`
@@ -701,6 +727,7 @@ func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
 		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
+	googleUser.Email = strings.ToLower(googleUser.Email)
 
 	user := &store.User{}
 
@@ -748,32 +775,20 @@ func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
 				jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 				return
 			}
+		} else if !user.EmailVerified {
+			// if the user has been created but isn't verified, verify them
+			if err := a.store.Users.MarkVerified(ctx, user.Email); err != nil {
+				logger.Error("failed to verify already existing user", "error", err, "email", user.Email)
+			}
 		}
 
 		// create oauth account linked to user
-		idToken, ok := oauth2Token.Extra("id_token").(string)
-		if !ok {
-			logger.Error("missing id_token")
-			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
-			return
-		}
-
-		scope, ok := oauth2Token.Extra("scope").(string)
-		if !ok {
-			logger.Error("missing scope")
-			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
-			return
-		}
-
+		scope, _ := oauth2Token.Extra("scope").(string)
 		oa := &store.OAuthAccount{
-			UserID:               user.ID,
-			Provider:             "google",
-			ProviderAccountID:    googleUser.ID,
-			AccessToken:          oauth2Token.AccessToken,
-			RefreshToken:         oauth2Token.RefreshToken,
-			IDToken:              idToken,
-			AccessTokenExpiresAt: oauth2Token.Expiry,
-			Scope:                scope,
+			UserID:            user.ID,
+			Provider:          "google",
+			ProviderAccountID: googleUser.ID,
+			Scope:             scope,
 		}
 
 		err = a.store.OAuthAccounts.Create(ctx, oa)
@@ -784,13 +799,6 @@ func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	token, err := auth.GenerateToken()
-	if err != nil {
-		logger.Error("failed to generate token", "error", err)
-		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
-		return
-	}
-
 	ua := r.UserAgent()
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -799,25 +807,43 @@ func (a *application) googleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := &store.Session{
-		UserID:    user.ID,
-		TokenHash: token.Hash,
-		IPAddress: &ip,
-		UserAgent: &ua,
-		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 30),
-	}
+	var token *auth.Token
+	var sessionCreated bool
 
-	// create session
-	err = a.store.Sessions.Create(ctx, session)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrConflict):
+	// try to create session token and user session, retry twice if a collision occurs
+	for range 3 {
+		token, err = auth.GenerateToken()
+		if err != nil {
+			logger.Error("failed to generate token", "error", err)
+			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		session := &store.Session{
+			UserID:    user.ID,
+			TokenHash: token.Hash,
+			IPAddress: &ip,
+			UserAgent: &ua,
+			ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 30),
+		}
+
+		err = a.store.Sessions.Create(ctx, session)
+		if errors.Is(err, store.ErrConflict) {
+			continue
+		}
+		if err != nil {
 			logger.Error("failed to create session", "error", err, "user_id", user.ID)
 			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
-		default:
-			logger.Error("failed to create session", "error", err)
-			jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
+			return
 		}
+
+		sessionCreated = true
+		break
+	}
+
+	if !sessionCreated {
+		logger.Error("failed to create session")
+		jsonutil.WriteError(w, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 

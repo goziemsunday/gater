@@ -51,7 +51,7 @@ func (v *VerificationStore) Create(ctx context.Context, params CreateVerificatio
 
 func (v *VerificationStore) Get(ctx context.Context, hashedToken string) (*Verifications, error) {
 	query := `
-    SELECT id, identifier, value, expires_at
+    SELECT id, identifier, value, expires_at, created_at, updated_at
     FROM verifications
     WHERE value = $1
   `
@@ -62,6 +62,7 @@ func (v *VerificationStore) Get(ctx context.Context, hashedToken string) (*Verif
 	verification := &Verifications{}
 	err := v.pool.QueryRow(ctx, query, hashedToken).Scan(
 		&verification.ID, &verification.Identifier, &verification.Value, &verification.ExpiresAt,
+		&verification.CreatedAt, &verification.UpdatedAt,
 	)
 
 	if err != nil {

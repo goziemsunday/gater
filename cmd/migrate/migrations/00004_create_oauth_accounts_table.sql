@@ -4,11 +4,6 @@ CREATE TABLE oauth_accounts (
   user_id                   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   provider                  TEXT NOT NULL,  -- 'google'
   provider_account_id       TEXT NOT NULL,  -- Google's user ID
-  access_token              TEXT,
-  refresh_token             TEXT,
-  id_token                  TEXT,
-  access_token_expires_at   TIMESTAMPTZ,
-  refresh_token_expires_at  TIMESTAMPTZ,
   scope                     TEXT,
   created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
