@@ -17,18 +17,32 @@ func (a *application) requireAuth(next http.Handler) http.Handler {
 		logger := loggerFromCtx(r.Context())
 
 		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			jsonutil.WriteError(w, http.StatusUnauthorized, "missing authorization header")
+
+		var token string
+
+		// check authorization header first
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) != 2 || parts[0] != "Bearer" {
+				jsonutil.WriteError(w, http.StatusUnauthorized, "malformed authorization header")
+				return
+			}
+			token = parts[1]
+		} else {
+			// if no auth header, check for browser-sent cookie
+			authCookie, err := r.Cookie("gater_auth_session")
+			if err != nil {
+				jsonutil.WriteError(w, http.StatusUnauthorized, "missing authorization token")
+				return
+			}
+			token = authCookie.Value
+		}
+
+		if token == "" {
+			jsonutil.WriteError(w, http.StatusUnauthorized, "missing authorization token")
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			jsonutil.WriteError(w, http.StatusUnauthorized, "malformed authorization header")
-			return
-		}
-
-		token := parts[1]
 		hashedToken := auth.HashToken(token)
 
 		session, err := a.store.Sessions.Get(r.Context(), hashedToken)

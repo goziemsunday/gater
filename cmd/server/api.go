@@ -47,18 +47,23 @@ func (a *application) mount() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{a.config.CORSAllowedOrigin},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
+		AllowedOrigins: []string{a.config.CORSAllowedOrigin},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+		ExposedHeaders: []string{"Link"},
+
+		// Allow browsers to auto send cookies cross-origin.
+		// AllowedOrigins must be an explicit origin for this to work.
+		AllowCredentials: true,
+
+		// Maximum value not ignored by any of major browsers
+		MaxAge: 300,
 	}))
+
 	// Set a timeout value on the request context (ctx), that will signal
 	// through ctx.Done() that the request has timed out and further
 	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
-
 	r.Use(a.injectLogging)
 
 	r.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
