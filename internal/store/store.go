@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/chiagxziem/gater/internal/cursor"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -47,6 +48,9 @@ type Store struct {
 		GetByProviderAndAccountID(ctx context.Context, provider, accountID string) (*OAuthAccount, error)
 		Create(ctx context.Context, account *OAuthAccount) error
 	}
+	Events interface {
+		GetPublished(ctx context.Context, cursor *cursor.Cursor, limit int) ([]*Event, error)
+	}
 }
 
 func New(pool *pgxpool.Pool) Store {
@@ -55,5 +59,6 @@ func New(pool *pgxpool.Pool) Store {
 		Sessions:      &SessionStore{pool},
 		Verifications: &VerificationStore{pool},
 		OAuthAccounts: &OAuthStore{pool},
+		Events:        &EventsStore{pool},
 	}
 }

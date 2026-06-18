@@ -98,6 +98,16 @@ func (a *application) mount() http.Handler {
 				r.Post("/logout", a.logoutUser)
 			})
 		})
+
+		// events
+		r.Route("/events", func(r chi.Router) {
+			r.Get("/", a.getPublishedEvents)
+
+			// protected events routes
+			r.Group(func(r chi.Router) {
+				r.Use(a.requireAuth)
+			})
+		})
 	})
 
 	return r
