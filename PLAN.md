@@ -494,7 +494,7 @@ CREATE INDEX idx_waitlist_entries_created_at ON waitlist_entries(created_at);
 
 ---
 
-## Project Structure
+## Project Structurestruct
 
 ```
 gater/

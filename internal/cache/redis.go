@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chiagxziem/gater/internal/config"
+	"github.com/goziemsunday/gater/internal/config"
 	"github.com/redis/go-redis/v9"
 )
 

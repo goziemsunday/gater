@@ -57,8 +57,8 @@ func WriteError(w http.ResponseWriter, status int, err any) {
 	}
 
 	type envelope struct {
-		Errors []string `json:"errors"`
+		Error string `json:"error"`
 	}
 
-	Write(w, status, &envelope{Errors: errors})
+	Write(w, status, &envelope{Error: errors[0]})
 }

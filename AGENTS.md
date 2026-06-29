@@ -32,7 +32,6 @@ Handlers manually wired into `application` struct in `main.go` — no DI framewo
 - **JSON response:** Success `{"data": ...}` via `WriteData`, errors `{"errors": [...]}` via `WriteError`. Exception: health check uses bare `Write` → `{"status":"OK"}`.
 - **Password** `json:"-"` — never serialized to JSON. `internal/store/` uses raw SQL, no transactions.
 - **Background email** uses `context.Background()`, errors only logged.
-- **Ad-hoc rate limiting** on verification-resend and forgot-password: 5 per hour, 1 min cooldown, checked via `Verifications.CountSince`.
 
 ## Routes (`/api`)
 

@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/chiagxziem/gater/internal/config"
-	"github.com/chiagxziem/gater/internal/db"
-	"github.com/chiagxziem/gater/internal/mailer"
-	"github.com/chiagxziem/gater/internal/store"
-	"github.com/chiagxziem/gater/internal/validator"
+	"github.com/goziemsunday/gater/internal/config"
+	"github.com/goziemsunday/gater/internal/db"
+	"github.com/goziemsunday/gater/internal/mailer"
+	"github.com/goziemsunday/gater/internal/store"
+	"github.com/goziemsunday/gater/internal/validator"
 )
 
 func main() {

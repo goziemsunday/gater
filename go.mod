@@ -1,4 +1,4 @@
-module github.com/chiagxziem/gater
+module github.com/goziemsunday/gater
 
 go 1.26.3
 

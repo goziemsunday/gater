@@ -10,14 +10,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/chiagxziem/gater/internal/config"
-	"github.com/chiagxziem/gater/internal/jsonutil"
-	"github.com/chiagxziem/gater/internal/mailer"
-	"github.com/chiagxziem/gater/internal/store"
-	"github.com/chiagxziem/gater/internal/validator"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/goziemsunday/gater/internal/config"
+	"github.com/goziemsunday/gater/internal/jsonutil"
+	"github.com/goziemsunday/gater/internal/mailer"
+	"github.com/goziemsunday/gater/internal/store"
+	"github.com/goziemsunday/gater/internal/validator"
 )
 
 type application struct {

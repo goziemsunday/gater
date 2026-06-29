@@ -3,8 +3,8 @@ package main
 import (
 	"net/http"
 
-	"github.com/chiagxziem/gater/internal/jsonutil"
-	"github.com/chiagxziem/gater/internal/store"
+	"github.com/goziemsunday/gater/internal/jsonutil"
+	"github.com/goziemsunday/gater/internal/store"
 )
 
 func (a *application) getUser(w http.ResponseWriter, r *http.Request) {

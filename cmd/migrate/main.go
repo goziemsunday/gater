@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/chiagxziem/gater/internal/config"
+	"github.com/goziemsunday/gater/internal/config"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 )

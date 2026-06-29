@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/chiagxziem/gater/internal/auth"
-	"github.com/chiagxziem/gater/internal/jsonutil"
-	"github.com/chiagxziem/gater/internal/store"
+	"github.com/goziemsunday/gater/internal/auth"
+	"github.com/goziemsunday/gater/internal/jsonutil"
+	"github.com/goziemsunday/gater/internal/store"
 )
 
 func (a *application) requireAuth(next http.Handler) http.Handler {

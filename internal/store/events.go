@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/chiagxziem/gater/internal/cursor"
 	"github.com/google/uuid"
+	"github.com/goziemsunday/gater/internal/cursor"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -39,8 +39,8 @@ func (s EventsStore) GetPublished(
 	limit int,
 ) ([]*Event, error) {
 	query := `
-    SELECT id, organizer_id, name, description, location, status, starts_at, 
-    ends_at, capacity, cancellation_allowed, cancellation_hours_before, 
+    SELECT id, organizer_id, name, description, location, status, starts_at,
+    ends_at, capacity, cancellation_allowed, cancellation_hours_before,
     max_tickets_per_purchase, created_at, updated_at
     FROM events
     WHERE status = 'published'

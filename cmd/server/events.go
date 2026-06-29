@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/chiagxziem/gater/internal/cursor"
-	"github.com/chiagxziem/gater/internal/jsonutil"
-	"github.com/chiagxziem/gater/internal/store"
+	"github.com/goziemsunday/gater/internal/cursor"
+	"github.com/goziemsunday/gater/internal/jsonutil"
+	"github.com/goziemsunday/gater/internal/store"
 )
 
 func (a *application) getPublishedEvents(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +38,7 @@ func (a *application) getPublishedEvents(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	//  if there's a next page, create next cursor
+	// if there's a next page, create next cursor
 	var nextCursor string
 	if len(events) == limit+1 {
 		events = events[:limit]

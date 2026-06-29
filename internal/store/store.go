@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/chiagxziem/gater/internal/cursor"
 	"github.com/google/uuid"
+	"github.com/goziemsunday/gater/internal/cursor"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/chiagxziem/gater/internal/config"
+	"github.com/goziemsunday/gater/internal/config"
 	"github.com/resend/resend-go/v3"
 )
 

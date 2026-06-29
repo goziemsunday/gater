@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/chiagxziem/gater/internal/jsonutil"
+	"github.com/goziemsunday/gater/internal/jsonutil"
 )
 
 func (a *application) checkHealth(w http.ResponseWriter, r *http.Request) {
